@@ -1,11 +1,9 @@
 language: node_js
 node_js:
-  - "0.10"
   - "0.8"
 services:
   - mongodb
   - redis-server
 script: "./test/ci.sh"
 env:
-  - MONGODB_CONN=mongodb://localhost/pushnetwork
-  - REDIS_CONN=redis://localhost
+  - MONGODB_CONN="mongodb://localhost/pushnetwork" REDIS_CONN="redis://localhost"
