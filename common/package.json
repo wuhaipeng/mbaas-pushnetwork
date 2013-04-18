@@ -1,0 +1,14 @@
+{
+    "name": "pn-common",
+    "description": "Push Network Common Library",
+    "version": "0.0.1",
+    "private": true,
+    "main": "./index.js",
+    "dependencies": {
+        "mongoose": "3.6.5",
+        "hiredis": "0.1.14",
+        "redis": "0.8.2",
+        "node-uuid": "1.4.0",
+        "mootools": "1.4.5"
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "name": "pn-dispatcher",
+    "description": "Push Network Dispatcher",
+    "version": "0.0.1",
+    "private": true,
+    "scripts": {
+        "start": "node dispatcher",
+        "preinstall": "npm link ../common --prefix=node_modules"
+    },
+    "dependencies": {
+        "pn-common": "*",
+        "express": "3.2.0",
+        "mootools": "1.4.5",
+        "async": "0.2.5"
+    }
+}
