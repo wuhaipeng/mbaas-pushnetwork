@@ -6,5 +6,4 @@ services:
   - redis-server
 script: "./test/ci.sh"
 env:
-  - MONGODB_CONN=mongodb://localhost/pushnetwork
-  - REDIS_CONN=redis://localhost
+  - MONGODB_CONN="mongodb://localhost/pushnetwork" REDIS_CONN="redis://localhost"
