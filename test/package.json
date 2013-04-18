@@ -1,0 +1,15 @@
+{
+    "name": "pn-test",
+    "description": "Push Network Test Suite",
+    "version": "0.0.1",
+    "private": true,
+    "scripts": {
+        "test": "mocha -r mootools -R list *-test.js"
+    },
+    "dependencies": {
+        "mocha": "1.7.3",
+        "expect.js": "0.2.0",
+        "sandboxed-module": "0.2.0",
+        "mootools": "1.4.5"
+    }
+}

@@ -1,0 +1,15 @@
+{
+    "name": "pn-worker",
+    "description": "Push Network Worker",
+    "version": "0.0.1",
+    "private": true,
+    "scripts": {
+        "start": "node worker",
+        "preinstall": "npm link ../common --prefix=node_modules"
+    },
+    "dependencies": {
+        "pn-common": "*",        
+        "mootools": "1.4.5",
+        "async": "0.2.5"
+    }
+}
