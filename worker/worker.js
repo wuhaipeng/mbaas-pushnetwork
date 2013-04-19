@@ -13,3 +13,8 @@
 // limitations under the License.
 
 require("mootools");
+
+require("pn-common").Settings.initialize(function () {
+    require("./lib/commander").start();
+    require("./lib/connmgr").start();
+});

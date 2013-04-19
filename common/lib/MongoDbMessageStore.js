@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-var ObjectId = require("mongoose").Types.ObjectId;
-var Settings = require("./Settings");
-var models = require("./MongooseModels");
+var ObjectId = require("mongoose").Types.ObjectId,
+    Settings = require("./Settings"),
+    models = require("./MongooseModels");
 
 var Message = models.Message;
 var MsgRef = models.MsgRef;

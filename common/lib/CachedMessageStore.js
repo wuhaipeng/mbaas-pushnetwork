@@ -13,7 +13,6 @@
 // limitations under the License.
 
 module.exports = new Class({
-    
     initialize: function (cacheProvider, messageStore) {
         this.cacheProvider = cacheProvider;
         this.messageStore = messageStore;

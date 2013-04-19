@@ -17,12 +17,9 @@
 var RedisHelper = require("./RedisHelper");
 
 module.exports = new Class({
-
     initialize: function (connUrl) {
         this.client = RedisHelper.connect(connUrl, { cache: true });
     },
-    
-    // implement ICacheProvider
     
     getValue: function (key, callback) {
         this.client.get(key, callback);

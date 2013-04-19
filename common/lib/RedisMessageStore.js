@@ -14,9 +14,9 @@
 
 // This module implements a cache provider based on Redis
 
-var RedisHelper = require("./RedisHelper");
-var Settings = require("./Settings");
-var uuid = require("node-uuid");
+var RedisHelper = require("./RedisHelper"),
+    Settings = require("./Settings"),
+    uuid = require("node-uuid");
 
 module.exports = new Class({
     initialize: function (connUrl) {
