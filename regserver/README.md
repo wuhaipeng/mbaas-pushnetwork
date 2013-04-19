@@ -9,9 +9,8 @@ Install nodejs with version "0.8.x"
 Install mongodb "2.2"
 Start a mongodb instance
 
-npm install
-
 export MONGODB_CONN=mongodb://<hostname>/<db>
-export PORT=<port>   ### optional
+export PORT=<port>                                   ### optional, default is 80
 
+npm install
 node app

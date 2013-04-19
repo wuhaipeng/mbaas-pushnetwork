@@ -31,7 +31,7 @@ require("./lib/dbfactory").build(function (err, db) {
     
     require("./routes/api").register(app, db);
     
-    var port = process.env.PORT || 9999;
+    var port = process.env.PORT || 80;
     app.listen(port, function() {
         console.log("Registration server is listening on port " + port);
     });
