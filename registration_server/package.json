@@ -1,0 +1,14 @@
+{
+  "name": "pn-registration-server",
+  "description": "Push Network Registration Server",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "node app",
+  },
+  "dependencies": {
+    "express": "3.0.3",
+    "mootools": "1.4.5",
+    "mongoose": "3.4.0"
+  }
+}
