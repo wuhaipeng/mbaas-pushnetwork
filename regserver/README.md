@@ -11,7 +11,7 @@ Start a mongodb instance
 
 npm install
 
-export REGISTRATION_SERVER_MONGODB_URL=mongodb://localhost/sample1
-export REGISTRATION_SERVER_PORT=9999   ### optional
+export MONGODB_CONN=mongodb://<hostname>/<db>
+export PORT=<port>   ### optional
 
 node app
