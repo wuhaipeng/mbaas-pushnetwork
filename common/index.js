@@ -15,12 +15,5 @@
 require("mootools");
 
 module.exports = {
-    Settings:            require("./lib/Settings"),
-    RedisCacheProvider:  require("./lib/RedisCacheProvider"),
-    MongoDbMessageStore: require("./lib/MongoDbMessageStore"),
-    MongoDbMessageQueue: require("./lib/MongoDbMessageQueue"),
-    CachedMessageStore:  require("./lib/CachedMessageStore"),
-    CachedMessageQueue:  require("./lib/CachedMessageQueue"),
-    RedisMessageStore:   require("./lib/RedisMessageStore"),
-    RedisMessageQueue:   require("./lib/RedisMessageQueue")
+    Settings: require("./lib/Settings")
 };

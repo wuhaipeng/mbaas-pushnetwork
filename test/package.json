@@ -4,7 +4,7 @@
     "version": "0.0.1",
     "private": true,
     "scripts": {
-        "test": "mocha -r mootools -R list *-test.js"
+        "test": "mocha -r mootools -R list */*-test.js"
     },
     "dependencies": {
         "mocha": "1.7.3",

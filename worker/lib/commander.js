@@ -44,7 +44,7 @@ var Commander = new Class({
     handlePicks: function () {
         this.redis.lrange(this.picksName, 0, -1, function (err, values) {
             if (!err && Array.isArray(values)) {
-                async.eachSeries(values, function (item, next) {
+                async.eachSeries(values.reverse(), function (item, next) {
                     var command;
                     try {
                         command = JSON.parse(item);
@@ -53,16 +53,18 @@ var Commander = new Class({
                     }
                     if (command) {
                         this.handleCommand(command, next);
+                    } else {
+                        next();
                     }
-                }, function () {
+                }.bind(this), function () {
                     this.redis.del(this.picksName, function () {
                         this.waitQueue();
-                    });
-                });
+                    }.bind(this));
+                }.bind(this));
             } else {
                 this.waitQueue();
             }
-        });
+        }.bind(this));
     },
     
     waitQueue: function () {

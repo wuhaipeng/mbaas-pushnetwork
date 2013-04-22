@@ -30,20 +30,19 @@ function makePushMsg(regId, msgs) {
     };
 }
 
+var connectionSeq = 0;
+
 var Connection = new Class({
     initialize: function (socket) {
         this.socket = socket;
+        this.id = ++ connectionSeq;
         this.regIds = { };
         
         this.sub("addRegId")
             .sub("removeRegId")
             .sub("pushAck");
 
-        socket.on("disconnect", function () {
-            this.unregister(function () {
-                this.close();
-            }.bind(this));
-        }.bind(this));
+        socket.on("disconnect", this.close.bind(this));
         
         // the client is expected to send a message after connected
         // within SOCKET_MAXIDLE
@@ -75,14 +74,16 @@ var Connection = new Class({
         this.socket.emit(event, JSON.stringify(params));
     },
     
-    unregister: function (callback) {
-        async.each(Object.keys(this.regIds), function (regId, next) {
-            theConnectionManager.updateRegistration(regId, null, next);
-        }, callback);
+    unreg: function (regId) {
+        delete this.regIds[regId];
     },
     
     close: function () {
-        this.socket.disconnect(true);
+        async.each(Object.keys(this.regIds), function (regId, next) {
+            theConnectionManager.updateRegistration(regId, this, false, next);
+        }.bind(this), function () {
+            this.socket.disconnect(true);
+        }.bind(this));
     },
     
     resendMessages: function (regId) {
@@ -105,7 +106,7 @@ var Connection = new Class({
     addRegId: function (params) {
         this.ensureArray(params, "regIds", function (regIds) {
             async.each(regIds, function (regId, next) {
-                theConnectionManager.updateRegistration(regId, this, function (err) {
+                theConnectionManager.updateRegistration(regId, this, true, function (err) {
                     if (!err) {
                         this.regIds[regId] = true;
                     }
@@ -118,9 +119,9 @@ var Connection = new Class({
     removeRegId: function (params) {
         this.ensureArray(params, "regIds", function (regIds) {
             async.each(regIds, function (regId, next) {
-                theConnectionManager.updateRegistration(regId, null, function (err) {
+                theConnectionManager.updateRegistration(regId, this, false, function (err) {
                     if (!err) {
-                        delete this.regIds[regId];
+                        this.unreg(regId);
                     }
                     next(err);
                 }.bind(this));
@@ -172,53 +173,73 @@ var ConnectionManager = new Class({
         io.listen(process.env.PORT || 3000);
     },
     
-    updateRegistration: function (regId, connection, callback) {
-        if (connection) {
+    updateRegistration: function (regId, connection, mapped, callback) {
+        var oldConn = this.connMap[regId];
+        if (mapped) {
+            if (oldConn && oldConn.id == connection.id) {
+                callback();
+                return;
+            }
             this.connMap[regId] = connection;
         } else {
+            if (!oldConn || oldConn.id != connection.id) {
+                callback();
+                return;
+            }
             delete this.connMap[regId];
         }
         
-        var key = regId + ":s", completed = false, takeFrom;
-        var redis = this.redis;
-        async.whilst(function () { return !completed; },
+        var key = regId + ":s", takeFrom, redis = this.redis;
+        var thisWorker = commander.get().name + "." + connection.id;
+        async.series([
             function (next) {
-                async.seriers([
-                    function (next) {
-                        redis.watch(key, next);
-                    },
-                    function (next) {
-                        redis.hget(key, "worker", function (err, value) {
-                            if (!err && value && value != commander.get().name) {
-                                takeFrom = value;
-                            }
-                            next();
-                        });
-                    },
-                    function (next) {
-                        var multi = redis.multi();
-                        if (connection) {
-                            multi.hset(key, "worker", commander.get().name);
-                        } else {
-                            multi.del(key);
-                        }
-                        multi.exec(function (err) {
-                            if (!err) {
-                                completed = true;
-                            }
-                            next();
-                        });
-                    }
-                ], next);
+                redis.watch(key, next);
             },
-            function () {
-                if (takeFrom) {
-                    redis.lpush(takeFrom + ":q", JSON.stringify({ action: "clean", regId: regId }));
-                    if (connection) {
-                        connection.resendMessages(regId);
+            function (next) {
+                redis.hget(key, "worker", function (err, value) {
+                    if (!err && value && value != thisWorker) {
+                        var pos = value.lastIndexOf(".");
+                        if (pos >= 0) {
+                            takeFrom = {
+                                name: value.substr(0, pos),
+                                id: value.substr(pos + 1)
+                            };
+                        }
                     }
-                    callback();
+                    next();
+                });
+            },
+            function (next) {
+                // when disconnect, only clean with "worker" == thisWorker
+                if (!mapped && takeFrom) {
+                    redis.unwatch(next);
+                } else {
+                    var multi = redis.multi();
+                    if (mapped) {
+                        multi.hset(key, "worker", thisWorker);
+                    } else {
+                        multi.del(key);
+                    }
+                    multi.exec(next);
                 }
+            }
+        ], function (err) {
+                if (!err && mapped) {
+                    if (oldConn) {
+                        oldConn.unreg(regId);
+                    }
+                    // Notify other worker instance to clean up dead connections
+                    if (takeFrom && takeFrom.name != commander.get().name) {
+                        var key = takeFrom.name + ":q";
+                        redis.multi()
+                            .lpush(key, JSON.stringify({ action: "clean", regId: regId }))
+                            .expire(key, common.Settings.HEARTBEAT_EXPIRE)
+                            .exec(function () { });
+                    }
+                    // Push queued messages for new registration Id
+                    connection.resendMessages(regId);
+                }
+                callback(err);
             }
         );
     },
@@ -234,7 +255,6 @@ var ConnectionManager = new Class({
     commandClean: function (command, done) {
         var connection = this.connMap[command.regId];
         if (connection) {
-            // TODO clean up only workers == self
             connection.close();
         }
         done();

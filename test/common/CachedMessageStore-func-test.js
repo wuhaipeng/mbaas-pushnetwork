@@ -12,20 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-require("./TestHelper").when(process.env.MONGODB_CONN)
-    .describe("MongoDbMessageQueue", function () {
-        var MongoDbMessageStore = require("../common/lib/MongoDbMessageStore");
-        var MongoDbMessageQueue = require("../common/lib/MongoDbMessageQueue");
-
+require("../lib/TestHelper").when(process.env.MONGODB_CONN && process.env.REDIS_CONN)
+    .describe("CachedMessageStore", function () {
+        var MongoDbMessageStore = require("../../common/lib/MongoDbMessageStore");
+        var CachedMessageStore = require("../../common/lib/CachedMessageStore");
+        var RedisCacheProvider = require("../../common/lib/RedisCacheProvider");
+        
         var Factory = new Class({
             createMessageStore: function () {
-                return new MongoDbMessageStore(process.env.MONGODB_CONN);
-            },
-            
-            createMessageQueue: function () {
-                return new MongoDbMessageQueue(process.env.MONGODB_CONN);
+                return new CachedMessageStore(new RedisCacheProvider(process.env.REDIS_CONN), new MongoDbMessageStore(process.env.MONGODB_CONN));
             }
         });
         
-        require("./CommonTests").MessageQueueTests(new Factory());
+        require("./CommonTests").MessageStoreTests(new Factory());
     });

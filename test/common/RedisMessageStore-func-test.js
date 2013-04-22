@@ -12,20 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-require("./TestHelper").when(process.env.REDIS_CONN)
-    .describe("RedisMessageQueue", function () {
-        var RedisMessageStore = require("../common/lib/RedisMessageStore");
-        var RedisMessageQueue = require("../common/lib/RedisMessageQueue");
-
+require("../lib/TestHelper").when(process.env.REDIS_CONN)
+    .describe("RedisMessageStore", function () {
+        var RedisMessageStore = require("../../common/lib/RedisMessageStore");
+        
         var Factory = new Class({
             createMessageStore: function () {
                 return new RedisMessageStore(process.env.REDIS_CONN);
-            },
-            
-            createMessageQueue: function () {
-                return new RedisMessageQueue(process.env.REDIS_CONN);
             }
         });
         
-        require("./CommonTests").MessageQueueTests(new Factory());
+        require("./CommonTests").MessageStoreTests(new Factory());
     });
