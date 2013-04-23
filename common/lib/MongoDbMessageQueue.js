@@ -19,13 +19,21 @@ var ObjectId = require("mongoose").Types.ObjectId,
 var Message = models.Message;
 var MsgRef = models.MsgRef;
 
+function msgIdsToObjectIds(msgIds) {
+    return msgIds.map(function (msgId) { return new ObjectId(msgId); });
+}
+
 module.exports = new Class({
     initialize: function (connUrl) {
         models.connect(connUrl);
     },
 
-    loadMessages: function (regId, callback) {
-        MsgRef.find({ regId: regId })
+    loadMessages: function (regId, msgIds, callback) {
+        var query = msgIds ? { "$and": [
+            { regId: regId },
+            { msgId: { "$in": msgIdsToObjectIds(msgIds) } }
+        ]} : { regId: regId };
+        MsgRef.find(query)
               .populate("message")
               .sort({ pushedAt: -1 })
               .limit(Settings.MAX_QUEUEDMSGS)
@@ -43,7 +51,7 @@ module.exports = new Class({
     removeMessages: function (regId, msgIds, callback) {
         MsgRef.remove({ "$and": [
             { regId: regId },
-            { msgId: { "$in": msgIds.map(function (msgId) { return new ObjectId(msgId); }) } }
+            { msgId: { "$in": msgIdsToObjectIds(msgIds) } }
         ]}, callback);
     }
 });

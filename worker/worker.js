@@ -14,7 +14,12 @@
 
 require("mootools");
 
-require("pn-common").Settings.initialize(function () {
+require("pn-common").Settings.initialize(function (err) {
+    if (err) {
+        console.error(err);
+        process.exit(1);
+    }
+
     require("./lib/commander").start();
     require("./lib/connmgr").start();
 });

@@ -14,6 +14,7 @@
 
 var expect  = require("expect.js"),
     sandbox = require("sandboxed-module"),
+    MockedRedis = require("../lib/MockedRedis"),
     TestHelper  = require("../lib/TestHelper"),
     MockedClass = TestHelper.MockedClass,
     asyncExpect = TestHelper.asyncExpect;
@@ -25,75 +26,6 @@ describe("ConnectionManagement", function () {
         Implements: [process.EventEmitter],
         
         disconnect: function () { }
-    });
-    
-    var MockedMulti = new Class({
-        Extends: MockedClass,
-        
-        initialize: function (redis) {
-            this.redis = redis;
-        },
-        
-        hset: function (key, field, value) {
-            if (!this.redis.data[key]) {
-                this.redis.data[key] = { };
-            }
-            this.redis.data[key][field] = value;
-            return this;
-        },
-        
-        del: function (key) {
-            delete this.redis.data[key];
-            return this;
-        },
-        
-        lpush: function (key, value) {
-            if (!Array.isArray(this.redis.data[key])) {
-                this.redis.data[key] = [];
-            }
-            this.redis.data[key].unshift(value);
-            return this;
-        },
-        
-        expire: function () {
-            return this;
-        },
-        
-        exec: function (callback) {
-            process.nextTick(callback);
-            return this;
-        }
-    });
-    
-    var MockedRedis = new Class({
-        Extends: MockedClass,
-        Implements: [process.EventEmitter],
-        
-        initialize: function () {
-            this.data = { };
-        },
-        
-        hget: function (key, field, callback) {
-            process.nextTick(function () {
-                var hash = this.data[key];
-                callback(null, hash ? hash[field] : null);
-            }.bind(this));
-            return this;
-        },
-
-        watch: function (key, callback) {
-            process.nextTick(callback);
-            return this;
-        },
-        
-        unwatch: function (callback) {
-            process.nextTick(callback);
-            return this;
-        },
-        
-        multi: function () {
-            return new MockedMulti(this);
-        }
     });
     
     var MockedMessageQueue = new Class({
@@ -144,16 +76,18 @@ describe("ConnectionManagement", function () {
             var count = 0;
             var redis = new MockedRedis();
             redis.mock("multi", function () {
-                var multi = new MockedMulti(redis);
+                var multi = new MockedRedis.Multi(redis);
                 multi.mock("exec", function (callback) {
                     if (++ count == 2) {
                         asyncExpect(function () {
                             expect(redis.data).to.eql({
                                 "abc123:s": {
-                                    worker: "TESTNAME.1"
+                                    "worker.name": "TESTNAME",
+                                    "worker.seq": 1
                                 },
                                 "abc321:s": {
-                                    worker: "TESTNAME.1"
+                                    "worker.name": "TESTNAME",
+                                    "worker.seq": 1
                                 }
                             });                        
                         }, done)();
@@ -176,7 +110,7 @@ describe("ConnectionManagement", function () {
             var removed = false;
             var redis = new MockedRedis();
             redis.mock("multi", function () {
-                var multi = new MockedMulti(redis);
+                var multi = new MockedRedis.Multi(redis);
                 multi.mock("del", function (key) {
                     delete redis.data[key];
                     removed = true;
@@ -186,7 +120,7 @@ describe("ConnectionManagement", function () {
                         asyncExpect(function () {
                             expect(redis.data["abc123:s"]).be.ok();
                             expect(redis.data["abc321:s"]).not.be.ok();
-                            expect(redis.data["abc123:s"]["worker"]).to.eql("TESTNAME.1");                        
+                            expect(redis.data["abc123:s"]["worker.name"]).to.eql("TESTNAME");
                         }, done)();
                     }
                     callback();
@@ -287,7 +221,7 @@ describe("ConnectionManagement", function () {
             sockets1.emit("connection", conn1);
             conn1.mock("disconnect", asyncExpect(function (opts) {
                 expect(opts).to.eql(true);
-                expect(redis.data["TESTID:s"].worker).to.eql("CONNMGR2.1");
+                expect(redis.data["TESTID:s"]["worker.name"]).to.eql("CONNMGR2");
             }, done), true);
             
             var sockets2 = new process.EventEmitter();

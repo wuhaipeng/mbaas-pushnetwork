@@ -18,7 +18,7 @@ module.exports = new Class({
         this.messageQueue = messageQueue;
     },
     
-    loadMessages: function (regId, callback) {
+    loadMessages: function (regId, msgIds, callback) {
         var key = "q:" + regId;
         this.cacheProvider.getValue(key, function (err, value) {
             var messages = undefined;

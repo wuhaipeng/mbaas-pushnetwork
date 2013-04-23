@@ -34,7 +34,7 @@ exports.connect = function (connUrl, options) {
             console.error("RedisError: " + err);
         }
     }).on("ready", function () {
-        if (options && options.cache) {
+        if (options && options.memory) {
             // disable persistency as Redis is only used for caching
             client.config("set", "save", "", function () { });
         }

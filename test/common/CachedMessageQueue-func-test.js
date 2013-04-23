@@ -14,19 +14,13 @@
 
 require("../lib/TestHelper").when(process.env.MONGODB_CONN && process.env.REDIS_CONN)
     .describe("CachedMessageQueue", function () {
-        var MongoDbMessageStore = require("../../common/lib/MongoDbMessageStore");
-        var MongoDbMessageQueue = require("../../common/lib/MongoDbMessageQueue");
-        var CachedMessageStore = require("../../common/lib/CachedMessageStore");
-        var CachedMessageQueue = require("../../common/lib/CachedMessageQueue");
-        var RedisCacheProvider = require("../../common/lib/RedisCacheProvider");
+        var CachedDataAccessor  = require("../../common/lib/CachedDataAccessor");
+        var MongoDbDataAccessor = require("../../common/lib/MongoDbDataAccessor");
+        var RedisCacheProvider  = require("../../common/lib/RedisCacheProvider");
 
         var Factory = new Class({
-            createMessageStore: function () {
-                return new CachedMessageStore(this.getCacheProvider(), new MongoDbMessageStore(process.env.MONGODB_CONN));
-            },
-            
-            createMessageQueue: function () {
-                return new CachedMessageQueue(this.getCacheProvider(), new MongoDbMessageQueue(process.env.MONGODB_CONN));
+            createDataAccessor: function () {
+                return new CachedDataAccessor(this.getCacheProvider(), new MongoDbDataAccessor(process.env.MONGODB_CONN));
             },
             
             getCacheProvider: function () {
