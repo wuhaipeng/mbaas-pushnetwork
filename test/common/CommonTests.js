@@ -24,13 +24,14 @@ exports.MessageStoreTests = function (factory) {
     var store;
     
     before(function () {
-        store = factory.createMessageStore();
+        var MessageStore = require("../../common/lib/MessageStore");
+        store = new MessageStore(factory.createDataAccessor());
     });
     
     it("#createMessage with default TTL", function (done) {
         var now = new Date();
         store.createMessage(CONTENT, asyncExpect(function (err, message) {
-            expect(err).be(null);
+            expect(err).not.be.ok();
             expect(message).be.ok();
             expect(message.id).be.ok();
             expect(message.content).to.eql(CONTENT);
@@ -44,7 +45,7 @@ exports.MessageStoreTests = function (factory) {
         var now = new Date();
         var specifiedTTL = 1440;
         store.createMessage(CONTENT, { ttl: specifiedTTL }, asyncExpect(function (err, message) {
-            expect(err).be(null);
+            expect(err).not.be.ok();
             expect(message).be.ok();
             expect(message.id).be.ok();
             expect(message.content).to.eql(CONTENT);
@@ -56,10 +57,10 @@ exports.MessageStoreTests = function (factory) {
     
     it("#enqueueMessage", function (done) {
         store.createMessage(CONTENT, asyncExpect(function (err, message) {
-            expect(err).be(null);
+            expect(err).not.be.ok();
             expect(message).be.ok();
             store.enqueueMessage(REGID, message.id, asyncExpect(function (err, msgRef) {
-                expect(err).be(null);
+                expect(err).not.be.ok();
                 expect(msgRef).be.ok();
                 expect(msgRef.regId).to.eql(REGID);
                 expect(msgRef.msgId).to.eql(message.id);
@@ -74,13 +75,15 @@ exports.MessageQueueTests = function (factory) {
     var store, queue;
     
     before(function () {
-        store = factory.createMessageStore();
-        queue = factory.createMessageQueue();
+        var MessageStore = require("../../common/lib/MessageStore");
+        var MessageQueue = require("../../common/lib/MessageQueue");
+        store = new MessageStore(factory.createDataAccessor());
+        queue = new MessageQueue(factory.createDataAccessor());
     });
     
     it("#loadMessages with non-existed regId", function (done) {
         queue.loadMessages("non-existed", asyncExpect(function (err, messages) {
-            expect(err).be(null);
+            expect(err).not.be.ok();
             expect(messages).be.an(Array);
             expect(messages).to.have.length(0);
         }, done));

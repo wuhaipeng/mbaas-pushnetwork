@@ -14,13 +14,20 @@
 
 require("../lib/TestHelper").when(process.env.MONGODB_CONN && process.env.REDIS_CONN)
     .describe("CachedMessageStore", function () {
-        var MongoDbMessageStore = require("../../common/lib/MongoDbMessageStore");
-        var CachedMessageStore = require("../../common/lib/CachedMessageStore");
-        var RedisCacheProvider = require("../../common/lib/RedisCacheProvider");
-        
+        var CachedDataAccessor  = require("../../common/lib/CachedDataAccessor");
+        var MongoDbDataAccessor = require("../../common/lib/MongoDbDataAccessor");
+        var RedisCacheProvider  = require("../../common/lib/RedisCacheProvider");
+
         var Factory = new Class({
-            createMessageStore: function () {
-                return new CachedMessageStore(new RedisCacheProvider(process.env.REDIS_CONN), new MongoDbMessageStore(process.env.MONGODB_CONN));
+            createDataAccessor: function () {
+                return new CachedDataAccessor(this.getCacheProvider(), new MongoDbDataAccessor(process.env.MONGODB_CONN));
+            },
+            
+            getCacheProvider: function () {
+                if (!this.cacheProvider) {
+                    this.cacheProvider = new RedisCacheProvider(process.env.REDIS_CONN);
+                }
+                return this.cacheProvider;
             }
         });
         

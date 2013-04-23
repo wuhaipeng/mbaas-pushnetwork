@@ -14,7 +14,8 @@
 
 require("mootools");
 
-var express = require("express");
+var express = require("express"),
+    Settings = require("pn-common").Settings;
 
 var app = express();
 
@@ -29,9 +30,13 @@ app.configure('development', function() {
     app.use(express.errorHandler());
 });
 
-require("./routes/api").register(app);
-
-var port = process.env.PORT || 3000;
-app.listen(port, function() {
-    console.log("PushNetwork Dispatcher is listening on port " + port);
+Settings.initialize(function (err) {
+    if (err) {
+        console.error(err);
+        process.exit(1);
+    }
+       
+    require("./routes/api").register(app);
+    
+    app.listen(Settings.LISTENING_PORT);
 });

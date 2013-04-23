@@ -14,16 +14,11 @@
 
 require("../lib/TestHelper").when(process.env.MONGODB_CONN)
     .describe("MongoDbMessageQueue", function () {
-        var MongoDbMessageStore = require("../../common/lib/MongoDbMessageStore");
-        var MongoDbMessageQueue = require("../../common/lib/MongoDbMessageQueue");
+        var MongoDbDataAccessor = require("../../common/lib/MongoDbDataAccessor");
 
         var Factory = new Class({
-            createMessageStore: function () {
-                return new MongoDbMessageStore(process.env.MONGODB_CONN);
-            },
-            
-            createMessageQueue: function () {
-                return new MongoDbMessageQueue(process.env.MONGODB_CONN);
+            createDataAccessor: function () {
+                return new MongoDbDataAccessor(process.env.MONGODB_CONN);
             }
         });
         

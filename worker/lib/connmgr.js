@@ -14,7 +14,7 @@
 
 var io     = require("socket.io"),
     async  = require("async"),
-    common = require("pn-common"),
+    Settings  = require("pn-common").Settings,
     commander = require("./commander");
 
 var theConnectionManager;
@@ -48,7 +48,7 @@ var Connection = new Class({
         // within SOCKET_MAXIDLE
         this.idleTimer = setTimeout(function () {
             this.close();
-        }.bind(this), common.Settings.SOCKET_MAXIDLE);
+        }.bind(this), Settings.SOCKET_MAXIDLE);
     },
     
     sub: function (name) {
@@ -87,13 +87,13 @@ var Connection = new Class({
     },
     
     resendMessages: function (regId) {
-        common.Settings.messageQueue.loadMessages(regId, function (msgs) {
+        Settings.messageQueue.loadMessages(regId, function (msgs) {
             this.send("push", makePushMsg(regId, msgs));
         }.bind(this));
     },
     
     sendMessages: function (regId, msgIds) {
-        common.Settings.messageQueue.loadMessages(regId, function (msgs) {
+        Settings.messageQueue.loadMessages(regId, function (msgs) {
             msgs = msgs.filter(function (msg) {
                 return msgIds.indexOf(msg.id) >= 0;
             });
@@ -133,7 +133,7 @@ var Connection = new Class({
         this.ensureArray(params, "info", function (acks) {
             async.each(acks, function (ack, next) {
                 if (ack.regId && Array.isArray(ack.messageIds)) {
-                    common.Settings.messageQueue.removeMessages(ack.regId, ack.messageIds, next);
+                    Settings.messageQueue.removeMessages(ack.regId, ack.messageIds, next);
                 } else {
                     next();
                 }
@@ -161,7 +161,7 @@ var Connection = new Class({
 var ConnectionManager = new Class({
     initialize: function () {
         this.connMap = { };
-        this.redis = common.Settings.connectRedis();
+        this.redis = Settings.connectRedis();
         commander.get().addCommand("push", this.commandPush.bind(this));
         commander.get().addCommand("clean", this.commandClean.bind(this));
     },
@@ -170,7 +170,7 @@ var ConnectionManager = new Class({
         io.sockets.on("connection", function (socket) {
             new Connection(socket);
         });
-        io.listen(process.env.PORT || 3000);
+        io.listen(Settings.LISTENING_PORT);
     },
     
     updateRegistration: function (regId, connection, mapped, callback) {
@@ -190,33 +190,30 @@ var ConnectionManager = new Class({
         }
         
         var key = regId + ":s", takeFrom, redis = this.redis;
-        var thisWorker = commander.get().name + "." + connection.id;
         async.series([
             function (next) {
                 redis.watch(key, next);
             },
             function (next) {
-                redis.hget(key, "worker", function (err, value) {
-                    if (!err && value && value != thisWorker) {
-                        var pos = value.lastIndexOf(".");
-                        if (pos >= 0) {
-                            takeFrom = {
-                                name: value.substr(0, pos),
-                                id: value.substr(pos + 1)
-                            };
-                        }
+                redis.hmget(key, "worker.name", "worker.seq", function (err, values) {
+                    if (!err && Array.isArray(values) && values[0] &&
+                        (values[0] != commander.get().name || values[1] != connection.id)) {
+                        takeFrom = {
+                            name: values[0],
+                            seq: values[1]
+                        };
                     }
                     next();
                 });
             },
             function (next) {
-                // when disconnect, only clean with "worker" == thisWorker
+                // when disconnect, only clean with "worker" is current worker
                 if (!mapped && takeFrom) {
                     redis.unwatch(next);
                 } else {
                     var multi = redis.multi();
                     if (mapped) {
-                        multi.hset(key, "worker", thisWorker);
+                        multi.hmset(key, { "worker.name": commander.get().name, "worker.seq": connection.id });
                     } else {
                         multi.del(key);
                     }
@@ -233,7 +230,7 @@ var ConnectionManager = new Class({
                         var key = takeFrom.name + ":q";
                         redis.multi()
                             .lpush(key, JSON.stringify({ action: "clean", regId: regId }))
-                            .expire(key, common.Settings.HEARTBEAT_EXPIRE)
+                            .expire(key, Settings.HEARTBEAT_EXPIRE)
                             .exec(function () { });
                     }
                     // Push queued messages for new registration Id

@@ -14,16 +14,11 @@
 
 require("../lib/TestHelper").when(process.env.REDIS_CONN)
     .describe("RedisMessageQueue", function () {
-        var RedisMessageStore = require("../../common/lib/RedisMessageStore");
-        var RedisMessageQueue = require("../../common/lib/RedisMessageQueue");
+        var RedisDataAccessor = require("../../common/lib/RedisDataAccessor");
 
         var Factory = new Class({
-            createMessageStore: function () {
-                return new RedisMessageStore(process.env.REDIS_CONN);
-            },
-            
-            createMessageQueue: function () {
-                return new RedisMessageQueue(process.env.REDIS_CONN);
+            createDataAccessor: function () {
+                return new RedisDataAccessor(process.env.REDIS_CONN);
             }
         });
         
