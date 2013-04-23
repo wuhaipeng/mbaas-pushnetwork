@@ -13,7 +13,7 @@
 // limitations under the License.
 
 var expect = require("expect.js"),
-    asyncExpect = require("./TestHelper").asyncExpect;
+    asyncExpect = require("../lib/TestHelper").asyncExpect;
 
 exports.MessageStoreTests = function (factory) {
 

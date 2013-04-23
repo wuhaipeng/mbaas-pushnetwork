@@ -12,15 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-require("./TestHelper").when(process.env.MONGODB_CONN)
-    .describe("MongoDbMessageStore", function () {
-        var MongoDbMessageStore = require("../common/lib/MongoDbMessageStore");
-        
+require("../lib/TestHelper").when(process.env.MONGODB_CONN)
+    .describe("MongoDbMessageQueue", function () {
+        var MongoDbMessageStore = require("../../common/lib/MongoDbMessageStore");
+        var MongoDbMessageQueue = require("../../common/lib/MongoDbMessageQueue");
+
         var Factory = new Class({
             createMessageStore: function () {
                 return new MongoDbMessageStore(process.env.MONGODB_CONN);
+            },
+            
+            createMessageQueue: function () {
+                return new MongoDbMessageQueue(process.env.MONGODB_CONN);
             }
         });
         
-        require("./CommonTests").MessageStoreTests(new Factory());
+        require("./CommonTests").MessageQueueTests(new Factory());
     });

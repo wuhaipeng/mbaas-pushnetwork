@@ -8,7 +8,9 @@
         "preinstall": "npm link ../common --prefix=node_modules"
     },
     "dependencies": {
-        "pn-common": "*",        
+        "pn-common": "*",
+        "socket.io": "0.9.14",
+        "node-uuid": "1.4.0",
         "mootools": "1.4.5",
         "async": "0.2.5"
     }

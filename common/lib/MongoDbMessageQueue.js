@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-var ObjectId = require("mongoose").Types.ObjectId;
-var models = require("./MongooseModels");
+var ObjectId = require("mongoose").Types.ObjectId,
+    Settings = require("./Settings"),
+    models = require("./MongooseModels");
 
 var Message = models.Message;
 var MsgRef = models.MsgRef;
@@ -27,6 +28,7 @@ module.exports = new Class({
         MsgRef.find({ regId: regId })
               .populate("message")
               .sort({ pushedAt: -1 })
+              .limit(Settings.MAX_QUEUEDMSGS)
               .exec(function (err, results) {
                         if (err) {
                             callback(err);
