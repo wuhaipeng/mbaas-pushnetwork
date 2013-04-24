@@ -14,8 +14,14 @@
 
 require("mootools");
 
-var express = require("express");
+var express = require("express"),
+    Settings = require("pn-common").Settings;
+
 var app = express();
+
+app.configure("development", function () {
+    app.use(express.logger('dev'));    
+});
 
 app.configure(function() {
     app.use(express.bodyParser());
@@ -23,7 +29,11 @@ app.configure(function() {
     app.use(app.router);
 });
 
-require("pn-common").Settings.initialize(function (err) {
+app.configure("development", function() {
+    app.use(express.errorHandler());
+});
+
+Settings.initialize(function (err) {
     if (err) {
         console.error(err);
         process.exit(1);
@@ -31,5 +41,7 @@ require("pn-common").Settings.initialize(function (err) {
     
     require("./routes/api").register(app);
     
-    app.listen(Settings.LISTENING_PORT);
+    app.listen(Settings.LISTENING_PORT, function () {
+        console.log("PushNetwork RegServer listens on " + Settings.LISTENING_PORT);
+    });
 }); 

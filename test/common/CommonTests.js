@@ -128,6 +128,7 @@ module.exports = function (factory) {
                 expect(messages).be.an(Array);
                 expect(messages).to.have.length(msgIds.length);
                 expect(messages.map(function (msg) { return msg.id })).to.eql(msgIds);
+                expect(messages.every(function (msg) { return !!msg.pushedAt; })).to.eql(true);
             }, done));
         });        
     });

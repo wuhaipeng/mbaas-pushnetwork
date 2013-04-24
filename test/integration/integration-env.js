@@ -12,18 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-require("mootools");
+var TestHelper = require("../lib/TestHelper");
 
-var Settings = require("pn-common").Settings;
-
-Settings.initialize(function (err) {
-    if (err) {
-        console.error(err);
-        process.exit(1);
+module.exports = {
+    regServerUrl: process.env.REGSERVER_URL || "http://localhost:10080",
+    
+    dispatcherUrl: process.env.DISPATCHER_URL || "http://localhost:10180",
+    
+    workerUrl: process.env.WORKER_URL || "http://localhost:10280",
+    
+    integrationEnabled: process.env.INTEGRATION,
+    
+    describe: function () {
+        var condition = TestHelper.when(this.integrationEnabled);
+        return condition.describe.apply(condition, arguments);
     }
-
-    require("./lib/commander").start();
-    require("./lib/connmgr").start(function () {
-        console.log("PushNetwork Worker listens on " + Settings.LISTENING_PORT);
-    });
-});
+};
