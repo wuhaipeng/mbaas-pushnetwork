@@ -13,7 +13,7 @@
 // limitations under the License.
 
 require("../lib/TestHelper").when(process.env.REDIS_CONN)
-    .describe("RedisMessageQueue", function () {
+    .describe("RedisDataAccessor", function () {
         var RedisDataAccessor = require("../../common/lib/RedisDataAccessor");
 
         var Factory = new Class({
@@ -22,5 +22,5 @@ require("../lib/TestHelper").when(process.env.REDIS_CONN)
             }
         });
         
-        require("./CommonTests").MessageQueueTests(new Factory());
+        require("./CommonTests")(new Factory());
     });

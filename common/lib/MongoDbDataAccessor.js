@@ -106,7 +106,7 @@ module.exports = new Class({
     removeMsgRefs: function (regId, msgIds, callback) {
         MsgRef.remove({ "$and": [
             { regId: regId },
-            { msgId: { "$in": msgIdsToObjectIds(msgIds) } }
+            { message: { "$in": msgIdsToObjectIds(msgIds) } }
         ]}, callback);
         return this;
     },

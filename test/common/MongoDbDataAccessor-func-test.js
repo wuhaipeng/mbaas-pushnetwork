@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-require("../lib/TestHelper").when(process.env.REDIS_CONN)
-    .describe("RedisMessageStore", function () {
-        var RedisDataAccessor = require("../../common/lib/RedisDataAccessor");
+require("../lib/TestHelper").when(process.env.MONGODB_CONN)
+    .describe("MongoDbDataAccessor", function () {
+        var MongoDbDataAccessor = require("../../common/lib/MongoDbDataAccessor");
 
         var Factory = new Class({
             createDataAccessor: function () {
-                return new RedisDataAccessor(process.env.REDIS_CONN);
+                return new MongoDbDataAccessor(process.env.MONGODB_CONN);
             }
         });
         
-        require("./CommonTests").MessageStoreTests(new Factory());
+        require("./CommonTests")(new Factory());
     });

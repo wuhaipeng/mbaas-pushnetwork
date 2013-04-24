@@ -92,7 +92,7 @@ module.exports = new Class({
     },
     
     removeMsgRefs: function (regId, msgIds, callback) {
-        this.client.zrem.apply(this.client, ["q:" + regId].concat(msgIds)).exec(callback);
+        this.client.zrem.apply(this.client, ["q:" + regId].concat(msgIds).concat([callback]));
         return this;
     },
     
