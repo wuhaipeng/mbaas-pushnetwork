@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-require("../lib/TestHelper").when(process.env.REDIS_CONN)
-    .describe("RedisMessageStore", function () {
-        var RedisDataAccessor = require("../../common/lib/RedisDataAccessor");
-
-        var Factory = new Class({
-            createDataAccessor: function () {
-                return new RedisDataAccessor(process.env.REDIS_CONN);
-            }
-        });
-        
-        require("./CommonTests").MessageStoreTests(new Factory());
-    });
+module.exports = new Class({
+    initialize: function (dataAccessor) {
+        this.accessor = dataAccessor;
+    },
+    
+    update: function (regId, info, callback) {
+        this.accessor.saveRegistration(regId, info.appKey, info.deviceFingerPrint, info.extra, callback);
+    },
+    
+    find: function (regId, callback) {
+        this.accessor.findRegistration(regId, callback);
+    }
+});

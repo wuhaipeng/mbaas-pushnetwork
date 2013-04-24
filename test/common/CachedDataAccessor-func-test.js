@@ -13,23 +13,16 @@
 // limitations under the License.
 
 require("../lib/TestHelper").when(process.env.MONGODB_CONN && process.env.REDIS_CONN)
-    .describe("CachedMessageStore", function () {
+    .describe("CachedDataAccessor", function () {
         var CachedDataAccessor  = require("../../common/lib/CachedDataAccessor");
         var MongoDbDataAccessor = require("../../common/lib/MongoDbDataAccessor");
         var RedisCacheProvider  = require("../../common/lib/RedisCacheProvider");
 
         var Factory = new Class({
             createDataAccessor: function () {
-                return new CachedDataAccessor(this.getCacheProvider(), new MongoDbDataAccessor(process.env.MONGODB_CONN));
-            },
-            
-            getCacheProvider: function () {
-                if (!this.cacheProvider) {
-                    this.cacheProvider = new RedisCacheProvider(process.env.REDIS_CONN);
-                }
-                return this.cacheProvider;
+                return new CachedDataAccessor(new RedisCacheProvider(process.env.REDIS_CONN), new MongoDbDataAccessor(process.env.MONGODB_CONN));
             }
         });
         
-        require("./CommonTests").MessageStoreTests(new Factory());
+        require("./CommonTests")(new Factory());
     });

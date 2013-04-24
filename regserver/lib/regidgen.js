@@ -12,17 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-exports.build = function (done) {
-    var db;
-    if (process.env.MONGODB_CONN) {
-        var Mongodb = require("./Mongodb");
-        db = new Mongodb(process.env.MONGODB_CONN);
-    } else {
-        console.error("Database information missed.");
-        process.exit(1);
-    }
+var crypto = require("crypto");
 
-    db.ready(function(err) {
-        done(err, db);
-    });
+exports.id = function (appKey, deviceFingerPrint) {
+    return crypto.createHash("sha1")
+                 .update(appKey)
+                 .update(deviceFingerPrint)
+                 .digest("hex");
 };

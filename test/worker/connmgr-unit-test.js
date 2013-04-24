@@ -47,9 +47,20 @@ describe("ConnectionManagement", function () {
     function getConnMgr(sockets, msgQueue, mockedRedis, name) {
         return sandbox.require("../../worker/lib/connmgr", {
             requires: {
+                "http": {
+                    createServer: function () {
+                        return {
+                            listen: function () { }
+                        };
+                    }
+                },
                 "socket.io": {
                     sockets: sockets,
-                    listen: function () { }
+                    listen: function () {
+                        return {
+                            sockets: sockets
+                        };
+                    }
                 },
                 "pn-common": {
                     Settings: {
@@ -145,7 +156,7 @@ describe("ConnectionManagement", function () {
             var messages = [{ id: "m1", content: "m1content", pushedAt: pushedAt }];
             var msgQueue = new MockedMessageQueue();
             msgQueue.mock("loadMessages", function (regId, callback) {
-                callback(messages);
+                callback(null, messages);
                 return this;
             });
             
@@ -207,7 +218,7 @@ describe("ConnectionManagement", function () {
             var messages = [{ id: "m1", content: "m1content", pushedAt: pushedAt }];
             var msgQueue = new MockedMessageQueue();
             msgQueue.mock("loadMessages", function (regId, callback) {
-                callback(messages);
+                callback(null, messages);
                 return this;
             });
 

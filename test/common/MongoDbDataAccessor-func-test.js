@@ -12,24 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-require("../lib/TestHelper").when(process.env.MONGODB_CONN && process.env.REDIS_CONN)
-    .describe("CachedMessageQueue", function () {
-        var CachedDataAccessor  = require("../../common/lib/CachedDataAccessor");
+require("../lib/TestHelper").when(process.env.MONGODB_CONN)
+    .describe("MongoDbDataAccessor", function () {
         var MongoDbDataAccessor = require("../../common/lib/MongoDbDataAccessor");
-        var RedisCacheProvider  = require("../../common/lib/RedisCacheProvider");
 
         var Factory = new Class({
             createDataAccessor: function () {
-                return new CachedDataAccessor(this.getCacheProvider(), new MongoDbDataAccessor(process.env.MONGODB_CONN));
-            },
-            
-            getCacheProvider: function () {
-                if (!this.cacheProvider) {
-                    this.cacheProvider = new RedisCacheProvider(process.env.REDIS_CONN);
-                }
-                return this.cacheProvider;
+                return new MongoDbDataAccessor(process.env.MONGODB_CONN);
             }
         });
         
-        require("./CommonTests").MessageQueueTests(new Factory());
+        require("./CommonTests")(new Factory());
     });

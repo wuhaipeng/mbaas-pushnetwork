@@ -12,44 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-exports.register = function (app, db) {
+var Settings = require("pn-common").Settings,
+    regidgen = require("../lib/regidgen");
 
-    function getRegistrationId(appKey, deviceFingerprint) {
-        var shasum = require("crypto").createHash("sha1");
-        shasum.update(appKey);
-        shasum.update(deviceFingerprint);
-        return shasum.digest("hex");
-    }
-
+exports.register = function (app) {
     app.post("/register", function (req, res) {
-
-        res.set("Content-Type", "application/json");
-
-        var message = {};
-        var appKey = req.body.appKey;
-        var deviceFingerprint = req.body.deviceFingerprint;
-
-        if (!appKey) {
-            message.msg = "App key missed.";
-            res.send(400, JSON.stringify(message));
-            return;
+        if (!req.body.appKey) {
+            res.json(400, { msg: "appKey missed", error: new Error("BadParameter") });
+        } else if (!req.body.deviceFingerPrint) {
+            res.json(400, { msg: "deviceFingerPrint missed", error: new Error("BadParameter") });
+        } else {
+            var info = {
+                appKey: req.body.appKey,
+                deviceFingerPrint: req.body.deviceFingerPrint
+            };
+            var regId = regidgen.id(info.appKey, info.deviceFingerPrint);
+            Settings.registrations.update(regId, info, function (err, registration) {
+                if (err) {
+                    res.json(500, { error : err });
+                } else {
+                    res.json(200, registration);
+                }
+            });
         }
-
-        if (!deviceFingerprint) {
-            message.msg = "Device fingerprint missed.";
-            res.send(400, JSON.stringify(message));
-            return;
-        }
-
-        message.regId = getRegistrationId(appKey, deviceFingerprint);
-
-        db.update(message.regId, appKey, deviceFingerprint, function(err) {
-            if (err) {
-                res.send(500);
-            } else {
-                res.send(200, JSON.stringify(message));
-            }
-        });
-
     });
 };

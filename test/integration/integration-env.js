@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-require("../lib/TestHelper").when(process.env.REDIS_CONN)
-    .describe("RedisMessageQueue", function () {
-        var RedisDataAccessor = require("../../common/lib/RedisDataAccessor");
+var TestHelper = require("../lib/TestHelper");
 
-        var Factory = new Class({
-            createDataAccessor: function () {
-                return new RedisDataAccessor(process.env.REDIS_CONN);
-            }
-        });
-        
-        require("./CommonTests").MessageQueueTests(new Factory());
-    });
+module.exports = {
+    regServerUrl: process.env.REGSERVER_URL || "http://localhost:10080",
+    
+    dispatcherUrl: process.env.DISPATCHER_URL || "http://localhost:10180",
+    
+    workerUrl: process.env.WORKER_URL || "http://localhost:10280",
+    
+    integrationEnabled: process.env.INTEGRATION,
+    
+    describe: function () {
+        var condition = TestHelper.when(this.integrationEnabled);
+        return condition.describe.apply(condition, arguments);
+    }
+};

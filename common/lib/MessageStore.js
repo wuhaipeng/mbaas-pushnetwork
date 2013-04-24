@@ -54,9 +54,12 @@ module.exports = new Class({
                     accessor.removeMsgRefs(regId,
                                     allMsgRefs.slice(this.settings.MAX_QUEUEDMSGS)
                                               .map(function (msgRef) { return msgRef.msgId; }),
-                                    function () { });
+                                    function () {
+                                        next();
+                                    });
+                } else {
+                    next();
                 }
-                next();
             }.bind(this)
         ], function (err) {
             callback(err, createdMsgRef);

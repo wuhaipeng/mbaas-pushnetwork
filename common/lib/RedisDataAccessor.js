@@ -92,13 +92,13 @@ module.exports = new Class({
     },
     
     removeMsgRefs: function (regId, msgIds, callback) {
-        this.client.zrem.apply(this.client, ["q:" + regId].concat(msgIds)).exec(callback);
+        this.client.zrem.apply(this.client, ["q:" + regId].concat(msgIds).concat([callback]));
         return this;
     },
     
     saveRegistration: function (regId, appKey, deviceFingerPrint, extra, callback) {
         var registration = {
-            regId: reg
+            regId: regId
         }
         this.client.hmset("r:" + regId, {
                 appKey: appKey,

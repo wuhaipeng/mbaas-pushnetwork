@@ -33,9 +33,14 @@ module.exports = new Class({
                         return msgIds.indexOf(msgRef.msgId) >= 0;
                     });
                 }
-                async.map(msgRefs.map(function (msgRef) { return msgRef.msgId; }),
-                        function (msgId, next) {
-                            this.accessor.loadMessage(msgId, next);
+                async.map(msgRefs,
+                        function (msgRef, next) {
+                            this.accessor.loadMessage(msgRef.msgId, function (err, message) {
+                                if (!err && message) {
+                                    message.pushedAt = msgRef.pushedAt;
+                                }
+                                next(err, message);
+                            });
                         }.bind(this),
                         callback
                 );

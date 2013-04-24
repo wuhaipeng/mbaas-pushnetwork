@@ -14,8 +14,14 @@
 
 require("mootools");
 
-var express = require("express");
+var express = require("express"),
+    Settings = require("pn-common").Settings;
+
 var app = express();
+
+app.configure("development", function () {
+    app.use(express.logger('dev'));    
+});
 
 app.configure(function() {
     app.use(express.bodyParser());
@@ -23,16 +29,19 @@ app.configure(function() {
     app.use(app.router);
 });
 
-require("./lib/dbfactory").build(function (err, db) {
+app.configure("development", function() {
+    app.use(express.errorHandler());
+});
+
+Settings.initialize(function (err) {
     if (err) {
         console.error(err);
         process.exit(1);
     }
     
-    require("./routes/api").register(app, db);
+    require("./routes/api").register(app);
     
-    var port = process.env.PORT || 80;
-    app.listen(port, function() {
-        console.log("Registration server is listening on port " + port);
+    app.listen(Settings.LISTENING_PORT, function () {
+        console.log("PushNetwork RegServer listens on " + Settings.LISTENING_PORT);
     });
 }); 

@@ -19,14 +19,17 @@ var express = require("express"),
 
 var app = express();
 
+app.configure("development", function () {
+    app.use(express.logger('dev'));    
+});
+
 app.configure(function() {
-    app.use(express.logger('dev'));
     app.use(express.bodyParser());
     app.use(express.methodOverride());
     app.use(app.router);
 });
 
-app.configure('development', function() {
+app.configure("development", function() {
     app.use(express.errorHandler());
 });
 
@@ -38,5 +41,7 @@ Settings.initialize(function (err) {
        
     require("./routes/api").register(app);
     
-    app.listen(Settings.LISTENING_PORT);
+    app.listen(Settings.LISTENING_PORT, function () {
+        console.log("PushNetwork Dispatcher listens on " + Settings.LISTENING_PORT);
+    });
 });

@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
-for dir in common dispatcher worker test; do
+for dir in common dispatcher worker regserver test; do
     (
         cd $dir
         npm install

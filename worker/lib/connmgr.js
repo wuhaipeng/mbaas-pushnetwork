@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-var io     = require("socket.io"),
-    async  = require("async"),
+var http      = require("http"),
+    io        = require("socket.io"),
+    async     = require("async"),
     Settings  = require("pn-common").Settings,
     commander = require("./commander");
 
@@ -87,18 +88,22 @@ var Connection = new Class({
     },
     
     resendMessages: function (regId) {
-        Settings.messageQueue.loadMessages(regId, function (msgs) {
-            this.send("push", makePushMsg(regId, msgs));
+        Settings.messageQueue.loadMessages(regId, function (err, msgs) {
+            if (!err && msgs) {
+                this.send("push", makePushMsg(regId, msgs));
+            }
         }.bind(this));
     },
     
     sendMessages: function (regId, msgIds) {
-        Settings.messageQueue.loadMessages(regId, function (msgs) {
-            msgs = msgs.filter(function (msg) {
-                return msgIds.indexOf(msg.id) >= 0;
-            });
-            if (msgs.length > 0) {
-                this.send("push", makePushMsg(regId, msgs));
+        Settings.messageQueue.loadMessages(regId, function (err, msgs) {
+            if (!err && msgs) {
+                msgs = msgs.filter(function (msg) {
+                    return msgIds.indexOf(msg.id) >= 0;
+                });
+                if (msgs.length > 0) {
+                    this.send("push", makePushMsg(regId, msgs));
+                }
             }
         }.bind(this));
     },
@@ -166,11 +171,18 @@ var ConnectionManager = new Class({
         commander.get().addCommand("clean", this.commandClean.bind(this));
     },
     
-    start: function () {
-        io.sockets.on("connection", function (socket) {
+    start: function (callback) {
+        this.httpServer = http.createServer(function (req, res) {
+            res.writeHead(403);
+            res.end();
+        });
+        this.sockets = io.listen(this.httpServer, {
+            "log level": process.env.NODE_ENV == "production" ? 0 : 3
+        });
+        this.sockets.sockets.on("connection", function (socket) {
             new Connection(socket);
         });
-        io.listen(Settings.LISTENING_PORT);
+        this.httpServer.listen(Settings.LISTENING_PORT, callback);
     },
     
     updateRegistration: function (regId, connection, mapped, callback) {
@@ -265,6 +277,6 @@ exports.get = function () {
     return theConnectionManager;
 };
 
-exports.start = function () {
-    exports.get().start();
+exports.start = function (callback) {
+    exports.get().start(callback);
 };
