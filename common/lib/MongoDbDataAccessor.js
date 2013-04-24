@@ -112,8 +112,9 @@ module.exports = new Class({
     },
     
     saveRegistration: function (regId, appKey, deviceFingerPrint, extra, callback) {
-        Registration.update({ regId: regId }, { regId: regId, appKey: appKey, deviceFingerPrint: deviceFingerPrint }, { upsert: true }, function (err, registration) {
-            callback(err, err ? undefined : registration.toObject());
+        var reg = { regId: regId, appKey: appKey, deviceFingerPrint: deviceFingerPrint };
+        Registration.update({ regId: regId }, reg, { upsert: true }, function (err) {
+            callback(err, err ? undefined : reg);
         });
         return this;
     },

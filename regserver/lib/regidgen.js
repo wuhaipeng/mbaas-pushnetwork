@@ -12,24 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-require("mootools");
+var crypto = require("crypto");
 
-var express = require("express");
-var app = express();
-
-app.configure(function() {
-    app.use(express.bodyParser());
-    app.use(express.methodOverride());
-    app.use(app.router);
-});
-
-require("pn-common").Settings.initialize(function (err) {
-    if (err) {
-        console.error(err);
-        process.exit(1);
-    }
-    
-    require("./routes/api").register(app);
-    
-    app.listen(Settings.LISTENING_PORT);
-}); 
+exports.id = function (appKey, deviceFingerPrint) {
+    return crypto.createHash("sha1")
+                 .update(appKey)
+                 .update(deviceFingerPrint)
+                 .digest("hex");
+};

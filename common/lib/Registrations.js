@@ -12,17 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-exports.build = function (done) {
-    var db;
-    if (process.env.MONGODB_CONN) {
-        var Mongodb = require("./Mongodb");
-        db = new Mongodb(process.env.MONGODB_CONN);
-    } else {
-        console.error("Database information missed.");
-        process.exit(1);
+module.exports = new Class({
+    initialize: function (dataAccessor) {
+        this.accessor = dataAccessor;
+    },
+    
+    update: function (regId, info, callback) {
+        this.accessor.saveRegistration(regId, info.appKey, info.deviceFingerPrint, info.extra, callback);
+    },
+    
+    find: function (regId, callback) {
+        this.accessor.findRegistration(regId, callback);
     }
-
-    db.ready(function(err) {
-        done(err, db);
-    });
-};
+});

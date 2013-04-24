@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-var RedisHelper  = require("./RedisHelper"),
-    MessageStore = require("./MessageStore"),
-    MessageQueue = require("./MessageQueue");
+var RedisHelper   = require("./RedisHelper"),
+    MessageStore  = require("./MessageStore"),
+    MessageQueue  = require("./MessageQueue");
+    Registrations = require("./Registrations");
 
-var theMessageStore, theMessageQueue;
+var theMessageStore, theMessageQueue, theRegistrations;
 
 var Settings = {
     // constants
@@ -77,6 +78,13 @@ var Settings = {
             theMessageQueue = new MessageQueue(this.dataAccessor);
         }
         return theMessageQueue;
+    },
+    
+    get registrations () {
+        if (!theRegistrations) {
+            theRegistrations = new Registrations(this.dataAccessor);
+        }
+        return theRegistrations;
     }
 };
 

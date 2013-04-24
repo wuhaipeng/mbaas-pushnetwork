@@ -98,7 +98,7 @@ module.exports = new Class({
     
     saveRegistration: function (regId, appKey, deviceFingerPrint, extra, callback) {
         var registration = {
-            regId: reg
+            regId: regId
         }
         this.client.hmset("r:" + regId, {
                 appKey: appKey,

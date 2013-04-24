@@ -22,14 +22,17 @@ module.exports = function (factory) {
     var DEFAULT_TTL = 43200;
     var REGID = "Dummy Reg Id";
     
-    var store, queue;
+    var store, queue, regs;
     
     before(function () {
-        var MessageStore = require("../../common/lib/MessageStore");
-        var MessageQueue = require("../../common/lib/MessageQueue");
+        var MessageStore  = require("../../common/lib/MessageStore");
+        var MessageQueue  = require("../../common/lib/MessageQueue");
+        var Registrations = require("../../common/lib/Registrations");
+        
         var dataAccessor = factory.createDataAccessor();
         store = new MessageStore(dataAccessor);
         queue = new MessageQueue(dataAccessor);
+        regs  = new Registrations(dataAccessor);
     });
     
     it("#createMessage with default TTL", function (done) {
@@ -178,5 +181,44 @@ module.exports = function (factory) {
                 }, done, true));
             }, done, true));
         });
+    });
+    
+    it("#update a new registration", function (done) {
+        var regId = "newRegId", info = { appKey: "newAppKey", deviceFingerPrint: "newDevice" };
+        regs.update(regId, info, asyncExpect(function (err, registration) {
+            expect(err).not.be.ok();
+            expect(registration).be.ok();
+            expect(registration.regId).to.eql(regId);
+            expect(registration.appKey).to.eql(info.appKey);
+            expect(registration.deviceFingerPrint).to.eql(info.deviceFingerPrint);
+        }, done));
+    });
+    
+    it("#update overwrites an existing registration", function (done) {
+        var regId = "newRegId", info = { appKey: "newAppKey", deviceFingerPrint: "newDevice" };
+        regs.update(regId, info, asyncExpect(function (err, registration) {
+            expect(err).not.be.ok();
+            expect(registration).be.ok();
+            expect(registration.regId).to.eql(regId);
+            expect(registration.appKey).to.eql(info.appKey);
+            expect(registration.deviceFingerPrint).to.eql(info.deviceFingerPrint);
+            
+            info.appKey = "newAppKey2";
+            regs.update(regId, info, asyncExpect(function (err, registration) {
+                expect(err).not.be.ok();
+                expect(registration).be.ok();
+                expect(registration.regId).to.eql(regId);
+                expect(registration.appKey).to.eql(info.appKey);
+                expect(registration.deviceFingerPrint).to.eql(info.deviceFingerPrint);
+                
+                regs.find(regId, asyncExpect(function (err, registration) {
+                    expect(err).not.be.ok();
+                    expect(registration).be.ok();
+                    expect(registration.regId).to.eql(regId);
+                    expect(registration.appKey).to.eql(info.appKey);
+                    expect(registration.deviceFingerPrint).to.eql(info.deviceFingerPrint);                    
+                }, done));
+            }, done, true));
+        }, done, true));
     });
 };
