@@ -20,6 +20,39 @@ Then launch in one command:
 nf start -p 10080
 ```
 
+To launch multiple instances of Push Worker:
+
+```bash
+nf start worker=5 -p 10080
+```
+
+It will starts 5 Push Worker instances listening from 10280 to 10284.
+
+##Environments for different storage configuration
+
+###MongoDB+RedisCache
+
+This is the default configuration
+
+```bash
+DB_CONN=cached:redis://localhost/1,mongodb://localhost/pushnetwork \
+nf start -p 10080
+```
+
+###MongoDB
+
+```bash
+DB_CONN=mongodb://localhost/pushnetwork \
+nf start -p 10080
+```
+
+###Persistent Redis
+
+```bash
+DB_CONN=redis://localhost \
+nf start -p 10080
+```
+
 #License
 
 Apache License 2.0

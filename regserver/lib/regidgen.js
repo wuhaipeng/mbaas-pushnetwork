@@ -16,7 +16,6 @@ var crypto = require("crypto");
 
 exports.id = function (appKey, deviceFingerPrint) {
     return crypto.createHash("sha1")
-                 .update(appKey)
-                 .update(deviceFingerPrint)
+                 .update(appKey + "," + deviceFingerPrint)
                  .digest("hex");
 };

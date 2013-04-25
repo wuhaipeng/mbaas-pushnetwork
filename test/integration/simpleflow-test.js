@@ -15,17 +15,13 @@
 var expect  = require("expect.js"),
     restler = require("restler"),
     io      = require("socket.io-client"),
+    uuid    = require("node-uuid"),
     ienv    = require("./integration-env"),
     TestHelper  = require("../lib/TestHelper"),
     asyncExpect = TestHelper.asyncExpect;
 
 ienv.describe("SimpleFlow", function () {
-    var APPKEY = "DummyAppKey", DEVICEFP = "DummyDeviceFingerPrint";
-    var REGINFO = {
-        appKey: APPKEY,
-        deviceFingerPrint: DEVICEFP
-    };
-    
+    var DEVICEFP = "DummyDeviceFingerPrint";
     var CONTENT = "TESTMESSAGECONTENT";
     
     function register(regInfo, callback) {
@@ -34,8 +30,22 @@ ienv.describe("SimpleFlow", function () {
     }
     
     it("simplest message dispatch", function (done) {
-        var regId;
-        register(REGINFO, asyncExpect(function (data, response) {
+        var regId, msgId, pushedMsgs;
+
+        var validateMessage = asyncExpect(function () {
+            var content;
+            expect(pushedMsgs.some(function (msg) {
+                    if (msg.id == msgId) {
+                        content = msg.content;
+                        return true;
+                    } else {
+                        return false;
+                    }
+                })).to.eql(true);
+            expect(content).to.eql(CONTENT);
+        }, done);
+        
+        register({ appKey: uuid.v4(), deviceFingerPrint: DEVICEFP }, asyncExpect(function (data, response) {
             expect(response.statusCode).to.eql(200);
             expect(data.regId).be.ok();
             regId = data.regId;            
@@ -43,6 +53,17 @@ ienv.describe("SimpleFlow", function () {
         var socket = io.connect(ienv.workerUrl);
         socket.on("connect", function () {
             socket.emit("addRegId", JSON.stringify({ seq: 0, regIds: [regId] }));
+            socket.on("push", asyncExpect(function (data) {
+                var info = JSON.parse(data).info;
+                expect(info).be.an(Array);
+                var msgs = info.filter(function (msg) { return msg.regId == regId; });
+                expect(msgs).not.be.empty();
+                expect(msgs[0].messages).not.be.empty();
+                pushedMsgs = msgs[0].messages;
+                if (msgId) {
+                    validateMessage();
+                }
+            }, done, true));            
             restler.postJson(ienv.dispatcherUrl + "/send", {
                     info: [{
                         message: CONTENT,
@@ -54,25 +75,10 @@ ienv.describe("SimpleFlow", function () {
                     expect(data.messageIds).be.an(Array);
                     expect(data.messageIds).to.have.length(1);
                     expect(typeof(data.messageIds[0])).to.eql("string");
-                    var msgId = data.messageIds[0];
-                    
-                    socket.on("push", asyncExpect(function (data) {
-                        var info = JSON.parse(data).info;
-                        expect(info).be.an(Array);
-                        var msgs = info.filter(function (msg) { return msg.regId == regId; });
-                        expect(msgs).not.be.empty();
-                        expect(msgs[0].messages).not.be.empty();
-                        var content;
-                        expect(msgs[0].messages.some(function (msg) {
-                                if (msg.id == msgId) {
-                                    content = msg.content;
-                                    return true;
-                                } else {
-                                    return false;
-                                }
-                            })).to.eql(true);
-                        expect(content).to.eql(CONTENT);
-                    }, done));
+                    msgId = data.messageIds[0];
+                    if (pushedMsgs) {
+                        validateMessage();
+                    }
                 }, done, true));
         });
     });

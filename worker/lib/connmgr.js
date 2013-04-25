@@ -89,7 +89,7 @@ var Connection = new Class({
     
     resendMessages: function (regId) {
         Settings.messageQueue.loadMessages(regId, function (err, msgs) {
-            if (!err && msgs) {
+            if (!err && Array.isArray(msgs) && msgs.length > 0) {
                 this.send("push", makePushMsg(regId, msgs));
             }
         }.bind(this));
@@ -97,7 +97,7 @@ var Connection = new Class({
     
     sendMessages: function (regId, msgIds) {
         Settings.messageQueue.loadMessages(regId, function (err, msgs) {
-            if (!err && msgs) {
+            if (!err && Array.isArray(msgs)) {
                 msgs = msgs.filter(function (msg) {
                     return msgIds.indexOf(msg.id) >= 0;
                 });
@@ -110,39 +110,70 @@ var Connection = new Class({
     
     addRegId: function (params) {
         this.ensureArray(params, "regIds", function (regIds) {
+            var errorRegIds = {};
             async.each(regIds, function (regId, next) {
-                theConnectionManager.updateRegistration(regId, this, true, function (err) {
-                    if (!err) {
-                        this.regIds[regId] = true;
+                Settings.registrations.find(regId, function (err, info) {
+                    if (!err && info) {
+                        theConnectionManager.updateRegistration(regId, this, true, function (err) {
+                            if (err) {
+                                errorRegIds[regId] = err.message;
+                            } else {
+                                this.regIds[regId] = true;
+                            }
+                            next();
+                        }.bind(this));
+                    } else {
+                        errorRegIds[regId] = err ? err.message : "Invalid";
+                        next();
                     }
-                    next(err);
                 }.bind(this));
-            }.bind(this), this.errorHandler(params));
+            }.bind(this), this.errorHandler(params, "RegIds", "regIds", errorRegIds));
         });
     },
     
     removeRegId: function (params) {
         this.ensureArray(params, "regIds", function (regIds) {
             async.each(regIds, function (regId, next) {
-                theConnectionManager.updateRegistration(regId, this, false, function (err) {
-                    if (!err) {
-                        this.unreg(regId);
-                    }
-                    next(err);
-                }.bind(this));
-            }.bind(this), this.errorHandler(params));
+                if (this.regIds[regId]) {
+                    theConnectionManager.updateRegistration(regId, this, false, function (err) {
+                        if (!err) {
+                            this.unreg(regId);
+                        }
+                        next();
+                    }.bind(this));
+                } else {
+                    next();
+                }
+            }.bind(this));
         });
     },
     
     pushAck: function (params) {
         this.ensureArray(params, "info", function (acks) {
+            var errorAcks = [];
             async.each(acks, function (ack, next) {
                 if (ack.regId && Array.isArray(ack.messageIds)) {
-                    Settings.messageQueue.removeMessages(ack.regId, ack.messageIds, next);
+                    if (this.regIds[ack.regId]) {
+                        Settings.messageQueue.removeMessages(ack.regId, ack.messageIds, function (err) {
+                            if (err) {
+                                errorAcks.push({
+                                    regId: ack.regId,
+                                    error: err.message
+                                });
+                            }
+                            next();
+                        });
+                    } else {
+                        errorAcks.push({
+                            regId: ack.regId,
+                            error: "Invalid"
+                        });
+                        next();
+                    }
                 } else {
                     next();
                 }
-            }.bind(this), this.errorHandler(params));
+            }.bind(this), this.errorHandler(params, "Acks", "acks", errorAcks));
         });
     },
     
@@ -154,10 +185,15 @@ var Connection = new Class({
         }
     },
     
-    errorHandler: function (msg) {
-        return function (err) {
-            if (err) {
-                this.send("error", { seq: msg.seq, type: "Error", error: err });
+    errorHandler: function (msg, errorType, extraAttr, value) {
+        return function () {
+            if (Object.keys(value).length > 0) {
+                var event = {
+                    seq: msg.seq,
+                    type: errorType
+                };
+                event[extraAttr] = value;
+                this.send("error", event);
             }
         }.bind(this);
     }
