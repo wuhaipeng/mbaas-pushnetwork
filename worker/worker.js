@@ -14,7 +14,8 @@
 
 require("mootools");
 
-var Settings = require("pn-common").Settings;
+var Settings = require("pn-common").Settings,
+    trace    = Settings.tracer("pn:work:main");
 
 Settings.initialize(function (err) {
     if (err) {
@@ -24,6 +25,6 @@ Settings.initialize(function (err) {
 
     require("./lib/commander").start();
     require("./lib/connmgr").start(function () {
-        console.log("PushNetwork Worker listens on " + Settings.LISTENING_PORT);
+        trace("listens on " + Settings.LISTENING_PORT);
     });
 });

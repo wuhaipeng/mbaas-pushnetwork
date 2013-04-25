@@ -28,7 +28,10 @@ describe("RegServer", function () {
             requires: {
                 "pn-common": {
                     Settings: {
-                        registrations: mockedRegs
+                        registrations: mockedRegs,
+                        tracer: function () {
+                            return function () { };
+                        }
                     }
                 }
             }

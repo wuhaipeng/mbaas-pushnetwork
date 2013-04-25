@@ -16,6 +16,7 @@ var http      = require("http"),
     io        = require("socket.io"),
     async     = require("async"),
     Settings  = require("pn-common").Settings,
+    trace     = Settings.tracer("pn:work:conn"),
     commander = require("./commander");
 
 var theConnectionManager;
@@ -37,6 +38,7 @@ var Connection = new Class({
     initialize: function (socket) {
         this.socket = socket;
         this.id = ++ connectionSeq;
+        this.name = this.id + "." + socket.id;
         this.regIds = { };
         
         this.sub("addRegId")
@@ -50,6 +52,8 @@ var Connection = new Class({
         this.idleTimer = setTimeout(function () {
             this.close();
         }.bind(this), Settings.SOCKET_MAXIDLE);
+        
+        trace("%s: CONNECTED", this.name);
     },
     
     sub: function (name) {
@@ -62,9 +66,11 @@ var Connection = new Class({
             try {
                 msg = JSON.parse(data);
             } catch (e) {
+                trace("%s: Ignore: %s [%s]", this.name, e.message, data);
                 // TODO bad message
             }
             if (msg) {
+                trace("%s: MSG[%s] %j", this.name, name, msg);
                 this[name].call(this, msg);
             }
         }.bind(this));
@@ -72,16 +78,21 @@ var Connection = new Class({
     },
     
     send: function (event, params) {
+        trace("%s: RESP[%s] %j", this.name, event, params);
         this.socket.emit(event, JSON.stringify(params));
     },
     
     unreg: function (regId) {
+        trace("%s: REGID - %s", this.name, regId);
         delete this.regIds[regId];
     },
     
     close: function () {
+        trace("%s: CLOSE %j", this.name, this.regIds);
         async.each(Object.keys(this.regIds), function (regId, next) {
-            theConnectionManager.updateRegistration(regId, this, false, next);
+            theConnectionManager.updateRegistration(regId, this, false, function () {
+                process.nextTick(next);
+            });
         }.bind(this), function () {
             this.socket.disconnect(true);
         }.bind(this));
@@ -118,9 +129,10 @@ var Connection = new Class({
                             if (err) {
                                 errorRegIds[regId] = err.message;
                             } else {
+                                trace("%s: REGID + %s", this.name, regId);
                                 this.regIds[regId] = true;
                             }
-                            next();
+                            process.nextTick(next);
                         }.bind(this));
                     } else {
                         errorRegIds[regId] = err ? err.message : "Invalid";
@@ -139,7 +151,7 @@ var Connection = new Class({
                         if (!err) {
                             this.unreg(regId);
                         }
-                        next();
+                        process.nextTick(next);
                     }.bind(this));
                 } else {
                     next();
@@ -280,6 +292,7 @@ var ConnectionManager = new Class({
                             .lpush(key, JSON.stringify({ action: "clean", regId: regId }))
                             .expire(key, Settings.HEARTBEAT_EXPIRE)
                             .exec(function () { });
+                        trace("TAKEOVER from %s.%s", takeFrom.name, takeFrom.seq);
                     }
                     // Push queued messages for new registration Id
                     connection.resendMessages(regId);

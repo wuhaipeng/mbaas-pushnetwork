@@ -12,17 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-var async  = require("async"),
-    uuid   = require("node-uuid"),
-    common = require("pn-common");
+var async    = require("async"),
+    uuid     = require("node-uuid"),
+    Settings = require("pn-common").Settings,
+    trace    = Settings.tracer("pn:work:cmdr");
 
 var Commander = new Class({
     initialize: function () {
         this.name = "pw-" + uuid.v4();
         this.queueName = this.name + ":q";
         this.picksName = this.name + ":p";
-        this.redis = common.Settings.connectRedis();
+        this.redis = Settings.connectRedis();
         this.redis.on("ready", function () {
+            trace("%s: Redis READY", this.name);
             this.redis.client("SETNAME", this.name);
         }.bind(this));
         this.commands = {};
@@ -30,9 +32,9 @@ var Commander = new Class({
     
     start: function () {
         this.timer = setInterval(function () {
-            this.redis.expire(this.queueName, common.Settings.HEARTBEAT_EXPIRE);
-            this.redis.expire(this.picksName, common.Settings.HEARTBEAT_EXPIRE);
-        }.bind(this), common.Settings.HEARTBEAT_PERIOD * 1000);
+            this.redis.expire(this.queueName, Settings.HEARTBEAT_EXPIRE);
+            this.redis.expire(this.picksName, Settings.HEARTBEAT_EXPIRE);
+        }.bind(this), Settings.HEARTBEAT_PERIOD * 1000);
         this.handlePicks();
     },
     
@@ -68,8 +70,11 @@ var Commander = new Class({
     },
     
     waitQueue: function () {
-        this.redis.brpoplpush(this.queueName, this.picksName, 0, function () {
-            // TODO error handling
+        this.redis.brpoplpush(this.queueName, this.picksName, 0, function (err) {
+            if (err) {
+                trace("%s: Error: BRPOPLPUSH: %s", this.name, err.message);
+                // TODO error handling
+            }
             this.handlePicks();
         }.bind(this));
     },
@@ -77,9 +82,10 @@ var Commander = new Class({
     handleCommand: function (command, next) {
         var handler = this.commands[command.action];
         if (typeof(handler) == "function") {
+            trace("%s: CMD %j", this.name, command);
             handler(command, next);
         } else {
-            console.log("Unknown command: " + command);
+            trace("%s: Ignore: Unknown command: %j", this.name, command);
             next();            
         }
     }
