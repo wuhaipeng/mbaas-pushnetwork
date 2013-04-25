@@ -13,10 +13,12 @@
 // limitations under the License.
 
 var Settings = require("pn-common").Settings,
+    trace    = Settings.tracer("pn:regs:api"),
     regidgen = require("../lib/regidgen");
 
 exports.register = function (app) {
     app.post("/register", function (req, res) {
+        trace("/register %j", req.body);
         if (!req.body.appKey) {
             res.json(400, { msg: "appKey missed", error: new Error("BadParameter") });
         } else if (!req.body.deviceFingerPrint) {
@@ -27,6 +29,7 @@ exports.register = function (app) {
                 deviceFingerPrint: req.body.deviceFingerPrint
             };
             var regId = regidgen.id(info.appKey, info.deviceFingerPrint);
+            trace("regId: %s", regId);
             Settings.registrations.update(regId, info, function (err, registration) {
                 if (err) {
                     res.json(500, { error : err });

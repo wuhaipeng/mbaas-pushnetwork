@@ -28,7 +28,10 @@ describe("Dispatcher", function () {
             requires: {
                 "pn-common": {
                     Settings: {
-                        MAX_REGIDS_INREQ: 10
+                        MAX_REGIDS_INREQ: 10,
+                        tracer: function () {
+                            return function () { };
+                        }
                     }
                 },
                 "../lib/messenger": {
@@ -90,8 +93,7 @@ describe("Dispatcher", function () {
                     expect(data.messageIds).be.an(Array);
                     expect(data.messageIds).to.have.length(2);
                     expect(data.messageIds[0]).to.eql("1");
-                    expect(data.messageIds[1].error).be.ok();
-                    expect(data.messageIds[1].error.message).to.eql("ErrorMessage");
+                    expect(data.messageIds[1].error).to.eql("ErrorMessage");
                 }, done));
         });
         
@@ -108,8 +110,7 @@ describe("Dispatcher", function () {
                     expect(statusCode).to.eql(200);
                     expect(data.messageIds).be.an(Array);
                     expect(data.messageIds).to.have.length(2);
-                    expect(data.messageIds[0].error).be.ok();
-                    expect(data.messageIds[0].error.message).to.eql("TooManyRegIds");
+                    expect(data.messageIds[0].error).to.eql("TooManyRegIds");
                     expect(data.messageIds[1]).to.eql("1");                
                 }, done));
         });
@@ -127,8 +128,7 @@ describe("Dispatcher", function () {
                     expect(statusCode).to.eql(200);
                     expect(data.messageIds).be.an(Array);
                     expect(data.messageIds).to.have.length(2);
-                    expect(data.messageIds[0].error).be.ok();
-                    expect(data.messageIds[0].error.message).to.eql("BadFormat");
+                    expect(data.messageIds[0].error).to.eql("BadFormat");
                     expect(data.messageIds[1]).to.eql("1");                
                 }, done));
         });
@@ -146,8 +146,7 @@ describe("Dispatcher", function () {
                     expect(statusCode).to.eql(200);
                     expect(data.messageIds).be.an(Array);
                     expect(data.messageIds).to.have.length(2);
-                    expect(data.messageIds[0].error).be.ok();
-                    expect(data.messageIds[0].error.message).to.eql("BadFormat");
+                    expect(data.messageIds[0].error).to.eql("BadFormat");
                     expect(data.messageIds[1]).to.eql("1");                
                 }, done));        
         });
@@ -155,8 +154,7 @@ describe("Dispatcher", function () {
         it("#send messages with invalid payload", function (done) {
             newApp(new MockedClass()).request("/send", {}, asyncExpect(function (statusCode, data) {
                     expect(statusCode).to.eql(400);
-                    expect(data.error).be.ok();
-                    expect(data.error.message).to.eql("BadParameter");
+                    expect(data.error).to.eql("BadParameter");
                 }, done));
         });
     });

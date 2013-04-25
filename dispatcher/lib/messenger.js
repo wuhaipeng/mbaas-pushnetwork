@@ -13,7 +13,8 @@
 // limitations under the License.
 
 var async = require("async"),
-    Settings = require("pn-common").Settings;
+    Settings = require("pn-common").Settings,
+    trace = Settings.tracer("pn:disp:msgr");
 
 var Messenger = new Class({
     initialize: function () {
@@ -25,16 +26,19 @@ var Messenger = new Class({
         this.store.createMessage(content, function (err, message) {
             var failedRegIds = [];
             if (err) {
+                trace("Error: createMessage: %s", err.message);
                 callback(err);
             } else {
                 async.each(regIds, function (regId, next) {
                     this.store.enqueueMessage(regId, message.id, function (err, msgRef) {
                         if (err) {
+                            trace("Error: enqueueMessage(%s, %s): %s", regId, message.id, err.message);
                             failedRegIds.push(regId);
                             next();
                         } else {
                             this.redis.hget(regId + ":s", "worker.name", function (err, value) {
                                 if (!err && value) {
+                                    trace("Pushing to %s: regId=%s, msgId=%s", value, regId, message.id);
                                     var key = value + ":q";
                                     this.redis.multi()
                                             .lpush(key, JSON.stringify({ action: "push", regId: regId, msgId: message.id }))

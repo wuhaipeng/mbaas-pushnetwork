@@ -53,7 +53,10 @@ describe("Dispatcher", function () {
                     Settings: {
                         HEARTBEAT_EXPIRE: 60,
                         connectRedis: function () { return mockedRedis; },
-                        messageStore: mockedStore
+                        messageStore: mockedStore,
+                        tracer: function () {
+                            return function () { };
+                        }
                     }
                 }
             }

@@ -14,8 +14,9 @@
 
 require("mootools");
 
-var express = require("express"),
-    Settings = require("pn-common").Settings;
+var express  = require("express"),
+    Settings = require("pn-common").Settings,
+    trace    = Settings.tracer("pn:disp:main");
 
 var app = express();
 
@@ -42,6 +43,6 @@ Settings.initialize(function (err) {
     require("./routes/api").register(app);
     
     app.listen(Settings.LISTENING_PORT, function () {
-        console.log("PushNetwork Dispatcher listens on " + Settings.LISTENING_PORT);
+        trace("listens on " + Settings.LISTENING_PORT);
     });
 });

@@ -32,7 +32,10 @@ describe("commander", function () {
                     Settings: {
                         HEARTBEAT_EXPIRE: 60,
                         HEARTBEAT_PERIOD: 30,
-                        connectRedis: function () { return mockedRedis; }
+                        connectRedis: function () { return mockedRedis; },
+                        tracer: function () {
+                            return function () { };
+                        }
                     }
                 }
             }

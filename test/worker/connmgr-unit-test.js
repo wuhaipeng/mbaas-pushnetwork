@@ -72,7 +72,10 @@ describe("ConnectionManagement", function () {
                                 callback(null, {});
                             }
                         },
-                        connectRedis: function () { return mockedRedis; }
+                        connectRedis: function () { return mockedRedis; },
+                        tracer: function () {
+                            return function () { };
+                        }
                     }
                 },
                 "./commander": {
@@ -123,7 +126,7 @@ describe("ConnectionManagement", function () {
         });
         
         it("remove registration Ids", function (done) {
-            var removed = false;
+            var inserts = 0, removed = false;
             var socket = new MockedSocket();
             
             var redis = new MockedRedis();
@@ -141,9 +144,11 @@ describe("ConnectionManagement", function () {
                             expect(redis.data["abc123:s"]["worker.name"]).to.eql("TESTNAME");
                         }, done)();
                     } else {
-                        process.nextTick(function () {
-                            socket.emit("removeRegId", '{ "regIds": ["abc321"] }');
-                        });
+                        if (++ inserts == 2) {
+                            process.nextTick(function () {
+                                socket.emit("removeRegId", '{ "regIds": ["abc321"] }');
+                            });
+                        }
                     }
                     callback();
                 }, true);

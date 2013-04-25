@@ -13,18 +13,20 @@
 // limitations under the License.
 
 var async     = require("async"),
-    Settings  = require("pn-common").Settings;
+    Settings  = require("pn-common").Settings,
+    trace     = Settings.tracer("pn:disp:api"),
     messenger = require("../lib/messenger");
 
 exports.register = function (app) {
     app.post("/send", function (req, res) {
+        trace("/send %j", req.body);
         if (Array.isArray(req.body.info)) {
             async.map(req.body.info, function (parcel, done) {
                 if (typeof(parcel.message) == "string" && Array.isArray(parcel.regIds)) {
                     if (parcel.regIds.length <= Settings.MAX_REGIDS_INREQ) {
                         messenger.get().post(parcel.message, parcel.regIds, function (err, message, failedRegIds) {
                             if (err) {
-                                done(null, { error: err });
+                                done(null, { error: err.message });
                             } else if (failedRegIds.length > 0) {
                                 done(null, { msgId: message.id, failedRegIds: failedRegIds });
                             } else {
@@ -32,16 +34,17 @@ exports.register = function (app) {
                             }
                         });
                     } else {
-                        done(null, { error: new Error("TooManyRegIds") });
+                        done(null, { error: "TooManyRegIds" });
                     }
                 } else {
-                    done(null, { error: new Error("BadFormat") });
+                    done(null, { error: "BadFormat" });
                 }
             }, function (err, msgIds) {
+                trace("messageIds: %j", msgIds);
                 res.json({ messageIds: msgIds });
             });
         } else {
-            res.json(400, { error: new Error("BadParameter") });
+            res.json(400, { error: "BadParameter" });
         }
     });
 };

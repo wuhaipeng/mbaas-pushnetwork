@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-var RedisHelper   = require("./RedisHelper"),
+var debug = require("debug"),
+    RedisHelper   = require("./RedisHelper"),
     MessageStore  = require("./MessageStore"),
     MessageQueue  = require("./MessageQueue");
     Registrations = require("./Registrations");
@@ -45,13 +46,18 @@ var Settings = {
     initialize: function (callback) {
         if (process.env.PORT) {
             this.LISTENING_PORT = process.env.PORT;
+        } else if (process.env.VCAP_APP_PORT) {
+            this.LISTENING_PORT = process.env.VCAP_APP_PORT;
         }
+        
         if (process.env.REDIS_CONN) {
             this.REDIS_CONN = process.env.REDIS_CONN;
         }
+        
         if (process.env.DB_CONN) {
             this.DB_CONN = process.env.DB_CONN;
         }
+        
         var err;
         try {
             this.dataAccessor = require("./DataAccessorFactory").createDataAccessor(this.DB_CONN);
@@ -64,6 +70,10 @@ var Settings = {
     // Helpers
     connectRedis: function () {  // connect In-Memory Redis
         return RedisHelper.connect(this.REDIS_CONN, { memory: true });
+    },
+    
+    tracer: function (name) {
+        return debug(name);
     },
     
     get messageStore () {   // connect to persistent message storage
