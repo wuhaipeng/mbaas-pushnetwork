@@ -44,7 +44,7 @@ describe("ConnectionManagement", function () {
         }
     });
     
-    function getConnMgr(sockets, msgQueue, mockedRedis, name) {
+    function getConnMgr(sockets, msgQueue, mockedRedis, nameOrFindReg) {
         return sandbox.require("../../worker/lib/connmgr", {
             requires: {
                 "http": {
@@ -67,13 +67,18 @@ describe("ConnectionManagement", function () {
                         SOCKET_MAXIDLE: 60000,
                         HEARTBEAT_EXPIRE: 60,
                         messageQueue: msgQueue,
+                        registrations: {
+                            find: typeof(nameOrFindReg) == "function" ? nameOrFindReg : function (regId, callback) {
+                                callback(null, {});
+                            }
+                        },
                         connectRedis: function () { return mockedRedis; }
                     }
                 },
                 "./commander": {
                     get: function () {
                         return {
-                            name: name ? name : "TESTNAME",
+                            name: typeof(nameOrFindReg) == "string" ? nameOrFindReg : "TESTNAME",
                             addCommand: function () { }
                         };
                     }
@@ -119,6 +124,8 @@ describe("ConnectionManagement", function () {
         
         it("remove registration Ids", function (done) {
             var removed = false;
+            var socket = new MockedSocket();
+            
             var redis = new MockedRedis();
             redis.mock("multi", function () {
                 var multi = new MockedRedis.Multi(redis);
@@ -133,6 +140,10 @@ describe("ConnectionManagement", function () {
                             expect(redis.data["abc321:s"]).not.be.ok();
                             expect(redis.data["abc123:s"]["worker.name"]).to.eql("TESTNAME");
                         }, done)();
+                    } else {
+                        process.nextTick(function () {
+                            socket.emit("removeRegId", '{ "regIds": ["abc321"] }');
+                        });
                     }
                     callback();
                 }, true);
@@ -143,10 +154,8 @@ describe("ConnectionManagement", function () {
             var connmgr = getConnMgr(sockets, new MockedMessageQueue(), redis);
             connmgr.start();
             
-            var socket = new MockedSocket();
             sockets.emit("connection", socket);
             socket.emit("addRegId", '{ "regIds": ["abc123", "abc321"] }');
-            socket.emit("removeRegId", '{ "regIds": ["abc321"] }');
         });
     });
     
@@ -264,6 +273,77 @@ describe("ConnectionManagement", function () {
                 conn2.emit("addRegId", '{ "regIds": ["TESTID"] }');
             }, done, true));
             conn1.emit("addRegId", '{ "regIds": ["TESTID"] }');
+        });
+    });
+    
+    describe("InvalidEvents", function () {
+        it("#addRegId with invalid format", function (done) {
+            var sockets = new process.EventEmitter();
+            var connmgr = getConnMgr(sockets, new MockedMessageQueue(), new MockedRedis());
+            connmgr.start();
+            
+            var conn = new MockedSocket();
+            sockets.emit("connection", conn);
+
+            conn.on("error", asyncExpect(function (data) {
+                var msg = JSON.parse(data);
+                expect(msg.seq).to.eql(123);
+                expect(msg.type).to.eql("BadFormat");
+            }, done));
+            conn.emit("addRegId", '{ "seq": 123, "regIds": 123 }'); 
+        });
+        
+        it("#addRegId with invalid registration Id", function (done) {
+            var sockets = new process.EventEmitter();
+            var connmgr = getConnMgr(sockets, new MockedMessageQueue(), new MockedRedis(), function (regId, callback) {
+                callback(null, null);
+            });
+            connmgr.start();
+            
+            var conn = new MockedSocket();
+            sockets.emit("connection", conn);
+
+            conn.on("error", asyncExpect(function (data) {
+                var msg = JSON.parse(data);
+                expect(msg.seq).to.eql(12345);
+                expect(msg.type).to.eql("RegIds");
+                expect(msg.regIds).be.ok();
+                expect(msg.regIds["TESTID"]).to.eql("Invalid");
+            }, done));
+            conn.emit("addRegId", '{ "seq": 12345, "regIds": ["TESTID"] }');
+        });
+        
+        it("#pushAck with invalid format", function (done) {
+            var sockets = new process.EventEmitter();
+            var connmgr = getConnMgr(sockets, new MockedMessageQueue(), new MockedRedis());
+            connmgr.start();
+            
+            var conn = new MockedSocket();
+            sockets.emit("connection", conn);
+
+            conn.on("error", asyncExpect(function (data) {
+                var msg = JSON.parse(data);
+                expect(msg.seq).to.eql(456);
+                expect(msg.type).to.eql("BadFormat");
+            }, done));
+            conn.emit("pushAck", '{ "seq": 456 }'); 
+        });
+        
+        it("#pushAck with invalid registration Id", function (done) {
+            var sockets = new process.EventEmitter();
+            var connmgr = getConnMgr(sockets, new MockedMessageQueue(), new MockedRedis());
+            connmgr.start();
+            
+            var conn = new MockedSocket();
+            sockets.emit("connection", conn);
+
+            conn.on("error", asyncExpect(function (data) {
+                var msg = JSON.parse(data);
+                expect(msg.seq).to.eql(45678);
+                expect(msg.type).to.eql("Acks");
+                expect(msg.acks).to.eql([{ regId: "INVALIDREGID", error: "Invalid" }]);
+            }, done));
+            conn.emit("pushAck", '{ "seq": 45678, "info": [{ "regId": "INVALIDREGID", "messageIds": ["id1", "id2"] }] }');
         });
     });
 });
