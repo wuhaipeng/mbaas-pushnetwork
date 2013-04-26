@@ -122,9 +122,10 @@ module.exports = new Class({
                     } else {
                         callback(err, registration);
                     }
-                },bind(this));
+                }.bind(this));
+            } else {
+                callback(null, object);
             }
-            callback(null, object);
         }.bind(this));
         return this;
     }

@@ -25,7 +25,24 @@ describe("ConnectionManagement", function () {
         Extends: MockedClass,
         Implements: [process.EventEmitter],
         
-        disconnect: function () { }
+        send: function (data) {
+            this.emit("message", { type: "utf8", utf8Data: data });
+        },
+
+        drop: function () { },
+        close: function () { }
+    });
+    
+    var MockedRequest = new Class({
+        initialize: function (connection) {
+            this.connection = connection;
+        },
+        
+        requestedProtocols: ["msg-json"],
+        
+        accept: function () {
+            return this.connection;
+        }
     });
     
     var MockedMessageQueue = new Class({
@@ -54,13 +71,16 @@ describe("ConnectionManagement", function () {
                         };
                     }
                 },
-                "socket.io": {
-                    sockets: sockets,
-                    listen: function () {
-                        return {
-                            sockets: sockets
-                        };
-                    }
+                "websocket": {
+                    server: new Class({
+                        on: function () {
+                            return sockets.on.apply(sockets, arguments);
+                        },
+                        
+                        emit: function () {
+                            return sockets.emit.apply(sockets, arguments);
+                        }
+                    })
                 },
                 "pn-common": {
                     Settings: {
@@ -88,6 +108,14 @@ describe("ConnectionManagement", function () {
                 }
             }
         }).get();
+    }
+    
+    function makeMsg (event, params) {
+        params.event = event;
+        return {
+            type: "utf8",
+            utf8Data: JSON.stringify(params)
+        };
     }
     
     describe("Subscriptions", function () {
@@ -121,8 +149,8 @@ describe("ConnectionManagement", function () {
             connmgr.start();
             
             var socket = new MockedSocket();
-            sockets.emit("connection", socket);
-            socket.emit("addRegId", '{ "regIds": ["abc123", "abc321"] }');
+            sockets.emit("request", new MockedRequest(socket));
+            socket.emit("message", makeMsg("addRegId", { seq: 1, regIds: ["abc123", "abc321"] }));
         });
         
         it("remove registration Ids", function (done) {
@@ -146,7 +174,7 @@ describe("ConnectionManagement", function () {
                     } else {
                         if (++ inserts == 2) {
                             process.nextTick(function () {
-                                socket.emit("removeRegId", '{ "regIds": ["abc321"] }');
+                                socket.emit("message", makeMsg("removeRegId", { seq: inserts + 10, regIds: ["abc321"] }));
                             });
                         }
                     }
@@ -159,8 +187,8 @@ describe("ConnectionManagement", function () {
             var connmgr = getConnMgr(sockets, new MockedMessageQueue(), redis);
             connmgr.start();
             
-            sockets.emit("connection", socket);
-            socket.emit("addRegId", '{ "regIds": ["abc123", "abc321"] }');
+            sockets.emit("request", new MockedRequest(socket));
+            socket.emit("message", makeMsg("addRegId", { seq: 1, regIds: ["abc123", "abc321"] }));
         });
     });
     
@@ -181,9 +209,13 @@ describe("ConnectionManagement", function () {
             connmgr.start();
             
             var toBeDropped = new MockedSocket();
-            sockets.emit("connection", toBeDropped);
-            toBeDropped.on("push", asyncExpect(function (data) {
-                var msg = JSON.parse(data);
+            sockets.emit("request", new MockedRequest(toBeDropped));
+            toBeDropped.on("message", asyncExpect(function (data) {
+                expect(data.type).to.eql("utf8");
+                var msg = JSON.parse(data.utf8Data);
+                if (msg.event != "push") {
+                    return;
+                }
                 expect(msg.info).be.an(Array);
                 expect(msg.info).to.have.length(1);
                 expect(msg.info[0]).to.eql({
@@ -195,36 +227,36 @@ describe("ConnectionManagement", function () {
                 
                 var received = []
                 var reconnected = new MockedSocket();
-                sockets.emit("connection", reconnected);
-                reconnected.on("push", asyncExpect(function (data) {
-                    var msg = JSON.parse(data);
+                sockets.emit("request", new MockedRequest(reconnected));
+                reconnected.on("message", asyncExpect(function (data) {
+                    expect(data.type).to.eql("utf8");
+                    var msg = JSON.parse(data.utf8Data);
+                    if (msg.event != "push") {
+                        return;
+                    }
                     received.push(msg);
                     if (received.length == 1) {
-                        expect(msg).to.eql({
-                            info: [{
-                                regId: "TESTID",
-                                messages: [
-                                    { id: "m1", content: "m1content", pushedAt: pushedAt.valueOf() }
-                                ]
-                            }]
-                        });
+                        expect(msg.info).to.eql([{
+                            regId: "TESTID",
+                            messages: [
+                                { id: "m1", content: "m1content", pushedAt: pushedAt.valueOf() }
+                            ]
+                        }]);
                         messages.push({ id: "m2", content: "m2content", pushedAt: pushedAt });
                         connmgr.commandPush({ regId: "TESTID", msgId: "m2" }, function () { });
                     } else if (received.length == 2) {
-                        expect(msg).to.eql({
-                            info: [{
-                                regId: "TESTID",
-                                messages: [
-                                    { id: "m2", content: "m2content", pushedAt: pushedAt.valueOf() }
-                                ]
-                            }]
-                        });
+                        expect(msg.info).to.eql([{
+                            regId: "TESTID",
+                            messages: [
+                                { id: "m2", content: "m2content", pushedAt: pushedAt.valueOf() }
+                            ]
+                        }]);
                         done();
                     }
                 }, done, true));
-                reconnected.emit("addRegId", '{ "regIds": ["TESTID"] }');
+                reconnected.emit("message", makeMsg("addRegId", { regIds: ["TESTID"] }));
             }, done, true));
-            toBeDropped.emit("addRegId", '{ "regIds": ["TESTID"] }');
+            toBeDropped.emit("message", makeMsg("addRegId", { regIds: ["TESTID"] }));
         });
         
         it("notify other instances to clean dead connection", function (done) {
@@ -243,9 +275,8 @@ describe("ConnectionManagement", function () {
             connmgr1.start();
             
             var conn1 = new MockedSocket();
-            sockets1.emit("connection", conn1);
-            conn1.mock("disconnect", asyncExpect(function (opts) {
-                expect(opts).to.eql(true);
+            sockets1.emit("request", new MockedRequest(conn1));
+            conn1.mock("drop", asyncExpect(function () {
                 expect(redis.data["TESTID:s"]["worker.name"]).to.eql("CONNMGR2");
             }, done), true);
             
@@ -254,20 +285,27 @@ describe("ConnectionManagement", function () {
             connmgr2.start();
             
             var conn2 = new MockedSocket();
-            sockets2.emit("connection", conn2);
+            sockets2.emit("request", new MockedRequest(conn2));
 
-            conn1.on("push", asyncExpect(function (data) {
-                var msg = JSON.parse(data);
-                expect(msg).to.eql({
-                    info: [{
-                        regId: "TESTID",
-                        messages: [
-                            { id: "m1", content: "m1content", pushedAt: pushedAt.valueOf() }
-                        ]
-                    }]
-                });
+            conn1.on("message", asyncExpect(function (data) {
+                expect(data.type).to.eql("utf8");
+                var msg = JSON.parse(data.utf8Data);
+                if (msg.event != "push") {
+                    return;
+                }
+                expect(msg.info).to.eql([{
+                    regId: "TESTID",
+                    messages: [
+                        { id: "m1", content: "m1content", pushedAt: pushedAt.valueOf() }
+                    ]
+                }]);
                 
-                conn2.on("push", asyncExpect(function (data) {
+                conn2.on("message", asyncExpect(function (data) {
+                    expect(data.type).to.eql("utf8");
+                    var msg = JSON.parse(data.utf8Data);
+                    if (msg.event != "push") {
+                        return;
+                    }
                     expect(redis.data["CONNMGR1:q"]).be.an(Array);
                     expect(redis.data["CONNMGR1:q"]).to.have.length(1);
                     var command = JSON.parse(redis.data["CONNMGR1:q"]);
@@ -275,9 +313,9 @@ describe("ConnectionManagement", function () {
                     expect(command.regId).to.eql("TESTID");
                     connmgr1.commandClean(command, function () { });
                 }, done, true));
-                conn2.emit("addRegId", '{ "regIds": ["TESTID"] }');
+                conn2.emit("message", makeMsg("addRegId", { regIds: ["TESTID"] }));
             }, done, true));
-            conn1.emit("addRegId", '{ "regIds": ["TESTID"] }');
+            conn1.emit("message", makeMsg("addRegId", { regIds: ["TESTID"] }));
         });
     });
     
@@ -288,14 +326,18 @@ describe("ConnectionManagement", function () {
             connmgr.start();
             
             var conn = new MockedSocket();
-            sockets.emit("connection", conn);
+            sockets.emit("request", new MockedRequest(conn));
 
-            conn.on("error", asyncExpect(function (data) {
-                var msg = JSON.parse(data);
-                expect(msg.seq).to.eql(123);
-                expect(msg.type).to.eql("BadFormat");
-            }, done));
-            conn.emit("addRegId", '{ "seq": 123, "regIds": 123 }'); 
+            conn.on("message", asyncExpect(function (data) {
+                expect(data.type).to.eql("utf8");
+                var msg = JSON.parse(data.utf8Data);
+                if (msg.event == "error") {
+                    expect(msg.seq).to.eql(123);
+                    expect(msg.type).to.eql("BadFormat");
+                    done();
+                }
+            }, done, true));
+            conn.emit("message", makeMsg("addRegId", { seq: 123, regIds: 123 })); 
         });
         
         it("#addRegId with invalid registration Id", function (done) {
@@ -306,16 +348,20 @@ describe("ConnectionManagement", function () {
             connmgr.start();
             
             var conn = new MockedSocket();
-            sockets.emit("connection", conn);
+            sockets.emit("request", new MockedRequest(conn));
 
-            conn.on("error", asyncExpect(function (data) {
-                var msg = JSON.parse(data);
-                expect(msg.seq).to.eql(12345);
-                expect(msg.type).to.eql("RegIds");
-                expect(msg.regIds).be.ok();
-                expect(msg.regIds["TESTID"]).to.eql("Invalid");
-            }, done));
-            conn.emit("addRegId", '{ "seq": 12345, "regIds": ["TESTID"] }');
+            conn.on("message", asyncExpect(function (data) {
+                expect(data.type).to.eql("utf8");
+                var msg = JSON.parse(data.utf8Data);
+                if (msg.event == "error") {
+                    expect(msg.seq).to.eql(12345);
+                    expect(msg.type).to.eql("RegIds");
+                    expect(msg.regIds).be.ok();
+                    expect(msg.regIds["TESTID"]).to.eql("Invalid");
+                    done();
+                }
+            }, done, true));
+            conn.emit("message", makeMsg("addRegId", { seq: 12345, regIds: ["TESTID"] }));
         });
         
         it("#pushAck with invalid format", function (done) {
@@ -324,14 +370,18 @@ describe("ConnectionManagement", function () {
             connmgr.start();
             
             var conn = new MockedSocket();
-            sockets.emit("connection", conn);
+            sockets.emit("request", new MockedRequest(conn));
 
-            conn.on("error", asyncExpect(function (data) {
-                var msg = JSON.parse(data);
-                expect(msg.seq).to.eql(456);
-                expect(msg.type).to.eql("BadFormat");
-            }, done));
-            conn.emit("pushAck", '{ "seq": 456 }'); 
+            conn.on("message", asyncExpect(function (data) {
+                expect(data.type).to.eql("utf8");
+                var msg = JSON.parse(data.utf8Data);
+                if (msg.event == "error") {
+                    expect(msg.seq).to.eql(456);
+                    expect(msg.type).to.eql("BadFormat");
+                    done();
+                }
+            }, done, true));
+            conn.emit("message", makeMsg("pushAck", { seq: 456 })); 
         });
         
         it("#pushAck with invalid registration Id", function (done) {
@@ -340,15 +390,19 @@ describe("ConnectionManagement", function () {
             connmgr.start();
             
             var conn = new MockedSocket();
-            sockets.emit("connection", conn);
-
-            conn.on("error", asyncExpect(function (data) {
-                var msg = JSON.parse(data);
-                expect(msg.seq).to.eql(45678);
-                expect(msg.type).to.eql("Acks");
-                expect(msg.acks).to.eql([{ regId: "INVALIDREGID", error: "Invalid" }]);
-            }, done));
-            conn.emit("pushAck", '{ "seq": 45678, "info": [{ "regId": "INVALIDREGID", "messageIds": ["id1", "id2"] }] }');
+            sockets.emit("request", new MockedRequest(conn));
+            
+            conn.on("message", asyncExpect(function (data) {
+                expect(data.type).to.eql("utf8");
+                var msg = JSON.parse(data.utf8Data);
+                if (msg.event == "error") {
+                    expect(msg.seq).to.eql(45678);
+                    expect(msg.type).to.eql("Acks");
+                    expect(msg.acks).to.eql([{ regId: "INVALIDREGID", error: "Invalid" }]);
+                    done();
+                }
+            }, done, true));
+            conn.emit("message", makeMsg("pushAck", { seq: 45678, info: [{ regId: "INVALIDREGID", messageIds: ["id1", "id2"] }] }));
         });
     });
 });

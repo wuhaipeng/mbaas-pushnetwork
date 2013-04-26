@@ -13,7 +13,7 @@
         "mootools": "1.4.5",
         "async": "0.2.5",        
         "restler": "2.0.1",
-        "socket.io-client": "0.9.11",
+        "websocket": "1.0.8",
         "node-uuid": "1.4.0"
     }
 }

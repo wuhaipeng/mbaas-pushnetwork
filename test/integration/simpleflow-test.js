@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-var expect  = require("expect.js"),
-    restler = require("restler"),
-    io      = require("socket.io-client"),
-    uuid    = require("node-uuid"),
-    ienv    = require("./integration-env"),
+var expect    = require("expect.js"),
+    restler   = require("restler"),
+    WebSocket = require("websocket").client,
+    uuid      = require("node-uuid"),
+    ienv      = require("./integration-env"),
     TestHelper  = require("../lib/TestHelper"),
     asyncExpect = TestHelper.asyncExpect;
 
@@ -49,37 +49,40 @@ ienv.describe("SimpleFlow", function () {
             expect(response.statusCode).to.eql(200);
             expect(data.regId).be.ok();
             regId = data.regId;            
-        }, done, true));
-        var socket = io.connect(ienv.workerUrl);
-        socket.on("connect", function () {
-            socket.emit("addRegId", JSON.stringify({ seq: 0, regIds: [regId] }));
-            socket.on("push", asyncExpect(function (data) {
-                var info = JSON.parse(data).info;
-                expect(info).be.an(Array);
-                var msgs = info.filter(function (msg) { return msg.regId == regId; });
-                expect(msgs).not.be.empty();
-                expect(msgs[0].messages).not.be.empty();
-                pushedMsgs = msgs[0].messages;
-                if (msgId) {
-                    validateMessage();
-                }
-            }, done, true));            
-            restler.postJson(ienv.dispatcherUrl + "/send", {
-                    info: [{
-                        message: CONTENT,
-                        regIds: [regId]
-                    }]
-                })
-                .on("complete", asyncExpect(function (data, response) {
-                    expect(response.statusCode).to.eql(200);
-                    expect(data.messageIds).be.an(Array);
-                    expect(data.messageIds).to.have.length(1);
-                    expect(typeof(data.messageIds[0])).to.eql("string");
-                    msgId = data.messageIds[0];
-                    if (pushedMsgs) {
+
+            new WebSocket().on("connect", function (conn) {
+                conn.on("message", asyncExpect(function (data) {
+                    expect(data.type).to.eql("utf8");
+                    var msg = JSON.parse(data.utf8Data);
+                    if (msg.event != "push") {
+                        return;
+                    }
+                    expect(msg.info).be.an(Array);
+                    var msgs = msg.info.filter(function (msg) { return msg.regId == regId; });
+                    expect(msgs).not.be.empty();
+                    expect(msgs[0].messages).not.be.empty();
+                    pushedMsgs = msgs[0].messages;
+                    if (msgId) {
                         validateMessage();
                     }
-                }, done, true));
-        });
+                }, done, true)).sendUTF(JSON.stringify({ event: "addRegId", seq: 0, regIds: [regId] }));
+                restler.postJson(ienv.dispatcherUrl + "/send", {
+                        info: [{
+                            message: CONTENT,
+                            regIds: [regId]
+                        }]
+                    })
+                    .on("complete", asyncExpect(function (data, response) {
+                        expect(response.statusCode).to.eql(200);
+                        expect(data.messageIds).be.an(Array);
+                        expect(data.messageIds).to.have.length(1);
+                        expect(typeof(data.messageIds[0])).to.eql("string");
+                        msgId = data.messageIds[0];
+                        if (pushedMsgs) {
+                            validateMessage();
+                        }
+                    }, done, true));
+            }).connect(ienv.workerUrl, "msg-json");
+        }, done, true));
     });
 });

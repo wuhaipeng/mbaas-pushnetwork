@@ -9,7 +9,7 @@
     },
     "dependencies": {
         "pn-common": "*",
-        "socket.io": "0.9.14",
+        "websocket": "1.0.8",
         "node-uuid": "1.4.0",
         "mootools": "1.4.5",
         "async": "0.2.5"
