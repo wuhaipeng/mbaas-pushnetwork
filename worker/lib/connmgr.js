@@ -13,10 +13,11 @@
 // limitations under the License.
 
 var http      = require("http"),
-    io        = require("socket.io"),
+    WebSocket = require("websocket").server,
     async     = require("async"),
     Settings  = require("pn-common").Settings,
     trace     = Settings.tracer("pn:work:conn"),
+    protocols = require("./protocols");
     commander = require("./commander");
 
 var theConnectionManager;
@@ -35,51 +36,50 @@ function makePushMsg(regId, msgs) {
 var connectionSeq = 0;
 
 var Connection = new Class({
-    initialize: function (socket) {
+    Implements: [process.EventEmitter],
+    
+    initialize: function (socket, protocol) {
         this.socket = socket;
+        this.protocol = protocol;
         this.id = ++ connectionSeq;
-        this.name = this.id + "." + socket.id;
+        this.name = this.id + "." + socket.remoteAddress;
         this.regIds = { };
-        
-        this.sub("addRegId")
-            .sub("removeRegId")
-            .sub("pushAck");
 
-        socket.on("disconnect", this.close.bind(this));
-        
+        socket.on("message", function (message) {
+            if (this.idleTimer) {
+                clearTimeout(this.idleTimer);
+                delete this.idleTimer;
+            }
+
+            var msg = this.protocol.decode(message);
+            if (msg && typeof(msg.event) == "string") {
+                var action = "action" + msg.event[0].toUpperCase() + msg.event.substr(1);
+                if (typeof(this[action]) == "function") {
+                    this[action].call(this, msg);
+                } else {
+                    trace("%s: BadAction %j", this.name, msg);
+                }
+            } else {
+                trace("%s: DROP %j", this.name, message);
+            }
+        }.bind(this)).on("close", function (reasonCode, description) {
+            trace("%s: CLOSE %d " + description, this.name, reasonCode);
+            this.cleanup();
+        }.bind(this)).on("error", function (error) {
+            trace("%s: ERROR %s", this.name, error.message);
+        }.bind(this));
+
         // the client is expected to send a message after connected
         // within SOCKET_MAXIDLE
         this.idleTimer = setTimeout(function () {
             this.close();
         }.bind(this), Settings.SOCKET_MAXIDLE);
-        
-        trace("%s: CONNECTED", this.name);
-    },
-    
-    sub: function (name) {
-        this.socket.on(name, function (data) {
-            if (this.idleTimer) {
-                clearTimeout(this.idleTimer);
-                delete this.idleTimer;
-            }
-            var msg;
-            try {
-                msg = JSON.parse(data);
-            } catch (e) {
-                trace("%s: Ignore: %s [%s]", this.name, e.message, data);
-                // TODO bad message
-            }
-            if (msg) {
-                trace("%s: MSG[%s] %j", this.name, name, msg);
-                this[name].call(this, msg);
-            }
-        }.bind(this));
-        return this;
     },
     
     send: function (event, params) {
         trace("%s: RESP[%s] %j", this.name, event, params);
-        this.socket.emit(event, JSON.stringify(params));
+        var data = this.protocol.encode(event, params);
+        this.socket.send(data);
     },
     
     unreg: function (regId) {
@@ -87,14 +87,22 @@ var Connection = new Class({
         delete this.regIds[regId];
     },
     
-    close: function () {
-        trace("%s: CLOSE %j", this.name, this.regIds);
+    cleanup: function (callback) {
+        trace("%s: CLEAN %j", this.name, this.regIds);
         async.each(Object.keys(this.regIds), function (regId, next) {
             theConnectionManager.updateRegistration(regId, this, false, function () {
                 process.nextTick(next);
             });
-        }.bind(this), function () {
-            this.socket.disconnect(true);
+        }.bind(this), callback);
+    },
+    
+    close: function (drop) {
+        this.cleanup(function () {
+            if (drop) {
+                this.socket.drop();
+            } else {
+                this.socket.close();
+            }
         }.bind(this));
     },
     
@@ -119,7 +127,7 @@ var Connection = new Class({
         }.bind(this));
     },
     
-    addRegId: function (params) {
+    actionAddRegId: function (params) {
         this.ensureArray(params, "regIds", function (regIds) {
             var errorRegIds = {};
             async.each(regIds, function (regId, next) {
@@ -143,7 +151,7 @@ var Connection = new Class({
         });
     },
     
-    removeRegId: function (params) {
+    actionRemoveRegId: function (params) {
         this.ensureArray(params, "regIds", function (regIds) {
             async.each(regIds, function (regId, next) {
                 if (this.regIds[regId]) {
@@ -160,7 +168,7 @@ var Connection = new Class({
         });
     },
     
-    pushAck: function (params) {
+    actionPushAck: function (params) {
         this.ensureArray(params, "info", function (acks) {
             var errorAcks = [];
             async.each(acks, function (ack, next) {
@@ -220,17 +228,22 @@ var ConnectionManager = new Class({
     },
     
     start: function (callback) {
-        this.httpServer = http.createServer(function (req, res) {
+        var httpServer = http.createServer(function (req, res) {
             res.writeHead(403);
             res.end();
         });
-        this.sockets = io.listen(this.httpServer, {
-            "log level": process.env.NODE_ENV == "production" ? 0 : 3
+        this.sockets = new WebSocket({ httpServer: httpServer });
+        this.sockets.on("request", function (request) {
+            var protocol = protocols.select(request.requestedProtocols);
+            if (!protocol) {
+                request.reject(400, "Protocol Unsupported");
+            } else {
+                var connection = request.accept(protocol.name, request.origin);
+                trace("ACCEPT [%s] from %s", protocol.name, request.origin);
+                new Connection(connection, protocol);
+            }
         });
-        this.sockets.sockets.on("connection", function (socket) {
-            new Connection(socket);
-        });
-        this.httpServer.listen(Settings.LISTENING_PORT, callback);
+        httpServer.listen(Settings.LISTENING_PORT, callback);
     },
     
     updateRegistration: function (regId, connection, mapped, callback) {
@@ -313,7 +326,7 @@ var ConnectionManager = new Class({
     commandClean: function (command, done) {
         var connection = this.connMap[command.regId];
         if (connection) {
-            connection.close();
+            connection.close(true);
         }
         done();
     }

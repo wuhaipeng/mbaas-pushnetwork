@@ -222,4 +222,11 @@ module.exports = function (factory) {
             }, done, true));
         }, done, true));
     });
+    
+    it("#find a non-existed registration", function (done) {
+        regs.find("non-existed-regId", asyncExpect(function (err, registration) {
+            expect(err).not.be.ok();
+            expect(registration).not.be.ok();
+        }, done));
+    });
 };
