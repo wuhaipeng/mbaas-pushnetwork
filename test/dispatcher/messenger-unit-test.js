@@ -46,7 +46,17 @@ describe("Dispatcher", function () {
         }
     });
     
-    function getMessenger(mockedStore, mockedRedis) {
+    var MockedRegistrations = new Class({
+        Extends: MockedClass,
+        
+        find: function (regId, callback) {
+            process.nextTick(function () {
+                callback(null, {});
+            });
+        }
+    });
+    
+    function getMessenger(mockedStore, mockedRedis, mockedRegs) {
         return sandbox.require("../../dispatcher/lib/messenger", {
             requires: {
                 "pn-common": {
@@ -54,6 +64,7 @@ describe("Dispatcher", function () {
                         HEARTBEAT_EXPIRE: 60,
                         connectRedis: function () { return mockedRedis; },
                         messageStore: mockedStore,
+                        registrations: mockedRegs ? mockedRegs : new MockedRegistrations(),
                         tracer: function () {
                             return function () { };
                         }
@@ -139,6 +150,19 @@ describe("Dispatcher", function () {
                     { action: "push", regId: "b", msgId: "m1" }
                 ]);
             }, done));            
+        });
+        
+        it("#post with invalid registration Ids", function (done) {
+            var regs = new MockedClass();
+            regs.mock("find", function (regId, callback) {
+                callback(null, null);
+            });
+            var messenger = getMessenger(new MockedStore(), new MockedRedis(), regs);
+            messenger.post("content", ["non-existed"], asyncExpect(function (err, message, failedRegIds) {
+                expect(err).not.be.ok();
+                expect(message).be.ok();
+                expect(failedRegIds).to.eql(["non-existed"]);
+            }, done));
         });
     });
 });

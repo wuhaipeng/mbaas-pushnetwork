@@ -20,6 +20,7 @@ var Messenger = new Class({
     initialize: function () {
         this.redis = Settings.connectRedis();
         this.store = Settings.messageStore;
+        this.regs = Settings.registrations;
     },
     
     post: function (content, regIds, callback) {
@@ -30,23 +31,31 @@ var Messenger = new Class({
                 callback(err);
             } else {
                 async.each(regIds, function (regId, next) {
-                    this.store.enqueueMessage(regId, message.id, function (err, msgRef) {
-                        if (err) {
-                            trace("Error: enqueueMessage(%s, %s): %s", regId, message.id, err.message);
+                    this.regs.find(regId, function (err, info) {
+                        if (!err && info) {
+                            this.store.enqueueMessage(regId, message.id, function (err, msgRef) {
+                                if (err) {
+                                    trace("Error: enqueueMessage(%s, %s): %s", regId, message.id, err.message);
+                                    failedRegIds.push(regId);
+                                    next();
+                                } else {
+                                    this.redis.hget(regId + ":s", "worker.name", function (err, value) {
+                                        if (!err && value) {
+                                            trace("Pushing to %s: regId=%s, msgId=%s", value, regId, message.id);
+                                            var key = value + ":q";
+                                            this.redis.multi()
+                                                    .lpush(key, JSON.stringify({ action: "push", regId: regId, msgId: message.id }))
+                                                    .expire(key, Settings.HEARTBEAT_EXPIRE)
+                                                    .exec(function () { });
+                                        }
+                                        next();
+                                    }.bind(this));
+                                }
+                            }.bind(this));
+                        } else {
+                            trace("Error: invalid registration: %s", regId);
                             failedRegIds.push(regId);
                             next();
-                        } else {
-                            this.redis.hget(regId + ":s", "worker.name", function (err, value) {
-                                if (!err && value) {
-                                    trace("Pushing to %s: regId=%s, msgId=%s", value, regId, message.id);
-                                    var key = value + ":q";
-                                    this.redis.multi()
-                                            .lpush(key, JSON.stringify({ action: "push", regId: regId, msgId: message.id }))
-                                            .expire(key, Settings.HEARTBEAT_EXPIRE)
-                                            .exec(function () { });
-                                }
-                                next();
-                            }.bind(this));
                         }
                     }.bind(this));
                 }.bind(this), function () {
