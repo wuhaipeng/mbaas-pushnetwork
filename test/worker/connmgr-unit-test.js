@@ -197,8 +197,13 @@ describe("ConnectionManagement", function () {
             var pushedAt = new Date();
             var messages = [{ id: "m1", content: "m1content", pushedAt: pushedAt }];
             var msgQueue = new MockedMessageQueue();
-            msgQueue.mock("loadMessages", function (regId, callback) {
-                callback(null, messages);
+            msgQueue.mock("loadMessages", function (regId, msgIds, callback) {
+                if (typeof(msgIds) == "function") {
+                    callback = msgIds;
+                    callback(null, messages);
+                } else {
+                    callback(null, messages.filter(function (msg) { return msgIds.indexOf(msg.id) >= 0; }));
+                }
                 return this;
             });
             

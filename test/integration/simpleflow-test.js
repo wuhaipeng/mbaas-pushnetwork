@@ -12,27 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-var expect    = require("expect.js"),
-    restler   = require("restler"),
-    WebSocket = require("websocket").client,
-    uuid      = require("node-uuid"),
-    ienv      = require("./integration-env"),
-    TestHelper  = require("../lib/TestHelper"),
-    asyncExpect = TestHelper.asyncExpect;
+var expect = require("expect.js"),
+    ienv   = require("./integration-env");
 
 ienv.describe("SimpleFlow", function () {
-    var DEVICEFP = "DummyDeviceFingerPrint";
     var CONTENT = "TESTMESSAGECONTENT";
     
-    function register(regInfo, callback) {
-        restler.postJson(ienv.regServerUrl + "/register", regInfo)
-            .on("complete", callback);
-    }
-    
     it("simplest message dispatch", function (done) {
-        var regId, msgId, pushedMsgs;
+        var regId, msgId, pushedMsgs, validated;
 
-        var validateMessage = asyncExpect(function () {
+        var validateMessage = function () {
+            if (validated) {
+                return;
+            }
             var content;
             expect(pushedMsgs.some(function (msg) {
                     if (msg.id == msgId) {
@@ -43,46 +35,35 @@ ienv.describe("SimpleFlow", function () {
                     }
                 })).to.eql(true);
             expect(content).to.eql(CONTENT);
-        }, done);
+            validated = true;
+            done();
+        };
         
-        register({ appKey: uuid.v4(), deviceFingerPrint: DEVICEFP }, asyncExpect(function (data, response) {
-            expect(response.statusCode).to.eql(200);
-            expect(data.regId).be.ok();
+        ienv.register(function (data) {
             regId = data.regId;            
 
-            new WebSocket().on("connect", function (conn) {
-                conn.on("message", asyncExpect(function (data) {
-                    expect(data.type).to.eql("utf8");
-                    var msg = JSON.parse(data.utf8Data);
-                    if (msg.event != "push") {
-                        return;
-                    }
-                    expect(msg.info).be.an(Array);
-                    var msgs = msg.info.filter(function (msg) { return msg.regId == regId; });
-                    expect(msgs).not.be.empty();
-                    expect(msgs[0].messages).not.be.empty();
-                    pushedMsgs = msgs[0].messages;
-                    if (msgId) {
+            ienv.connect([regId], function (msg) {
+                if (msg.event != "push") {
+                    return;
+                }
+                expect(msg.info).be.an(Array);
+                var msgs = msg.info.filter(function (msg) { return msg.regId == regId; });
+                expect(msgs).not.be.empty();
+                expect(msgs[0].messages).not.be.empty();
+                pushedMsgs = msgs[0].messages;
+                if (msgId) {
+                    validateMessage();
+                }                
+            }, done).on("connect", function (conn) {
+                ienv.pushMsg(CONTENT, [regId], function (data) {
+                    expect(data.messageIds).to.have.length(1);
+                    expect(typeof(data.messageIds[0])).to.eql("string");
+                    msgId = data.messageIds[0];
+                    if (pushedMsgs) {
                         validateMessage();
                     }
-                }, done, true)).sendUTF(JSON.stringify({ event: "addRegId", seq: 0, regIds: [regId] }));
-                restler.postJson(ienv.dispatcherUrl + "/send", {
-                        info: [{
-                            message: CONTENT,
-                            regIds: [regId]
-                        }]
-                    })
-                    .on("complete", asyncExpect(function (data, response) {
-                        expect(response.statusCode).to.eql(200);
-                        expect(data.messageIds).be.an(Array);
-                        expect(data.messageIds).to.have.length(1);
-                        expect(typeof(data.messageIds[0])).to.eql("string");
-                        msgId = data.messageIds[0];
-                        if (pushedMsgs) {
-                            validateMessage();
-                        }
-                    }, done, true));
-            }).connect(ienv.workerUrl, "msg-json");
-        }, done, true));
+                }, done);                
+            });
+        }, done);
     });
 });

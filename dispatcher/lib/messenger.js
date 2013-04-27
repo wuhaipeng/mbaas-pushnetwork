@@ -30,6 +30,7 @@ var Messenger = new Class({
                 trace("Error: createMessage: %s", err.message);
                 callback(err);
             } else {
+                trace("Message Created: %j", message);
                 async.each(regIds, function (regId, next) {
                     this.regs.find(regId, function (err, info) {
                         if (!err && info) {
@@ -39,6 +40,7 @@ var Messenger = new Class({
                                     failedRegIds.push(regId);
                                     next();
                                 } else {
+                                    trace("Message Enqueued: %j", msgRef);
                                     this.redis.hget(regId + ":s", "worker.name", function (err, value) {
                                         if (!err && value) {
                                             trace("Pushing to %s: regId=%s, msgId=%s", value, regId, message.id);
