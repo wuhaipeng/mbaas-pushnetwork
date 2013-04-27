@@ -42,7 +42,7 @@ var Connection = new Class({
         this.socket = socket;
         this.protocol = protocol;
         this.id = ++ connectionSeq;
-        this.name = this.id + "." + socket.remoteAddress;
+        this.name = this.id + ":" + socket.remoteAddress;
         this.regIds = { };
 
         socket.on("message", function (message) {
@@ -55,6 +55,7 @@ var Connection = new Class({
             if (msg && typeof(msg.event) == "string") {
                 var action = "action" + msg.event[0].toUpperCase() + msg.event.substr(1);
                 if (typeof(this[action]) == "function") {
+                    trace("%s: MSG %j", this.name, msg);
                     this[action].call(this, msg);
                 } else {
                     trace("%s: BadAction %j", this.name, msg);
@@ -108,21 +109,22 @@ var Connection = new Class({
     
     resendMessages: function (regId) {
         Settings.messageQueue.loadMessages(regId, function (err, msgs) {
-            if (!err && Array.isArray(msgs) && msgs.length > 0) {
+            if (err) {
+                trace("%s: RESEND LoadMsg Error: %s", this.name, err.message);
+            } else if (Array.isArray(msgs) && msgs.length > 0) {
                 this.send("push", makePushMsg(regId, msgs));
             }
         }.bind(this));
     },
     
     sendMessages: function (regId, msgIds) {
-        Settings.messageQueue.loadMessages(regId, function (err, msgs) {
-            if (!err && Array.isArray(msgs)) {
-                msgs = msgs.filter(function (msg) {
-                    return msgIds.indexOf(msg.id) >= 0;
-                });
-                if (msgs.length > 0) {
-                    this.send("push", makePushMsg(regId, msgs));
-                }
+        Settings.messageQueue.loadMessages(regId, msgIds, function (err, msgs) {
+            if (err) {
+                trace("%s: SENDMSG LoadMsg Error: %s", this.name, err.message);
+            } else if (Array.isArray(msgs) && msgs.length > 0) {
+                this.send("push", makePushMsg(regId, msgs));
+            } else {
+                trace("%s: SENDMSG No Message", this.name);
             }
         }.bind(this));
     },
@@ -239,7 +241,7 @@ var ConnectionManager = new Class({
                 request.reject(400, "Protocol Unsupported");
             } else {
                 var connection = request.accept(protocol.name, request.origin);
-                trace("ACCEPT [%s] from %s", protocol.name, request.origin);
+                trace("ACCEPT [%s] from %s (%s)", protocol.name, connection.remoteAddress, request.origin);
                 new Connection(connection, protocol);
             }
         });

@@ -73,7 +73,14 @@ var Settings = {
     },
     
     tracer: function (name) {
-        return debug(name);
+        var fn = debug(name);
+        return fn.enabled ? function () {
+            var args = [].slice.call(arguments);
+            if (args.length > 0 && typeof(args[0]) == "string") {
+                args[0] = "@" + Date.now() + " " + args[0];
+            }
+            return fn.apply(this, args);
+        } : fn;
     },
     
     get messageStore () {   // connect to persistent message storage
