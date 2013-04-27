@@ -20,11 +20,14 @@ if [ -f "$ENV_FILE" ]; then
     . "$ENV_FILE"
 fi
 
+LOGFN_SUFFIX=""
+[ -n "$INSTANCE" ] && LOGFN_SUFFIX="-$INSTANCE"
+
 export DB_CONN REDIS_CONN DEBUG PORT
 
 mkdir -p "$LOG_DIR"
 if [ -n "$TEE" ]; then
-    exec node "$base/$SERVICE/$SERVICE.js" 2>&1 | tee "$LOG_DIR/$SERVICE.log"
+    exec node "$base/$SERVICE/$SERVICE.js" 2>&1 | tee "$LOG_DIR/${SERVICE}${LOGFN_SUFFIX}.log"
 else
-    exec node "$base/$SERVICE/$SERVICE.js" 2>&1 >"$LOG_DIR/$SERVICE.log"
+    exec node "$base/$SERVICE/$SERVICE.js" >"$LOG_DIR/${SERVICE}${LOGFN_SUFFIX}.log" 2>&1
 fi
