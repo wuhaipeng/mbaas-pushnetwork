@@ -13,7 +13,7 @@
 // limitations under the License.
 
 var Settings = require("pn-common").Settings,
-    trace    = Settings.tracer("pn:regs:api"),
+    trace    = Settings.tracer("pn:regs:apis"),
     regidgen = require("../lib/regidgen");
 
 exports.register = function (app) {
