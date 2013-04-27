@@ -14,7 +14,7 @@
 
 var async     = require("async"),
     Settings  = require("pn-common").Settings,
-    trace     = Settings.tracer("pn:disp:api"),
+    trace     = Settings.tracer("pn:disp:apis"),
     messenger = require("../lib/messenger");
 
 exports.register = function (app) {

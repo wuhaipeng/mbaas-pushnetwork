@@ -58,6 +58,11 @@ var Settings = {
             this.DB_CONN = process.env.DB_CONN;
         }
         
+        var trace = this.tracer("pn:comm:sets");
+        trace("DB_CONN=" + this.DB_CONN);
+        trace("REDIS_CONN=" + this.REDIS_CONN);
+        trace("LISTENING_PORT=" + this.LISTENING_PORT);
+        
         var err;
         try {
             this.dataAccessor = require("./DataAccessorFactory").createDataAccessor(this.DB_CONN);
