@@ -19,12 +19,9 @@ ienv.describe("SimpleFlow", function () {
     var CONTENT = "TESTMESSAGECONTENT";
     
     it("simplest message dispatch", function (done) {
-        var regId, msgId, pushedMsgs, validated;
+        var regId, msgId, pushedMsgs;
 
         var validateMessage = function () {
-            if (validated) {
-                return;
-            }
             var content;
             expect(pushedMsgs.some(function (msg) {
                     if (msg.id == msgId) {
@@ -35,7 +32,6 @@ ienv.describe("SimpleFlow", function () {
                     }
                 })).to.eql(true);
             expect(content).to.eql(CONTENT);
-            validated = true;
             done();
         };
         
@@ -43,26 +39,31 @@ ienv.describe("SimpleFlow", function () {
             regId = data.regId;            
 
             ienv.connect([regId], function (msg) {
-                if (msg.event != "push") {
-                    return;
-                }
-                expect(msg.info).be.an(Array);
-                var msgs = msg.info.filter(function (msg) { return msg.regId == regId; });
-                expect(msgs).not.be.empty();
-                expect(msgs[0].messages).not.be.empty();
-                pushedMsgs = msgs[0].messages;
-                if (msgId) {
-                    validateMessage();
-                }                
-            }, done).on("connect", function (conn) {
-                ienv.pushMsg(CONTENT, [regId], function (data) {
-                    expect(data.messageIds).to.have.length(1);
-                    expect(typeof(data.messageIds[0])).to.eql("string");
-                    msgId = data.messageIds[0];
-                    if (pushedMsgs) {
+                if (msg.event == 'state') {
+                    expect(msg.regIds).be.an(Array);
+                    expect(msg.regIds.indexOf(regId)).not.be.lessThan(0);
+                    ienv.pushMsg(CONTENT, [regId], function (data) {
+                        expect(data.messageIds).to.have.length(1);
+                        expect(typeof(data.messageIds[0])).to.eql("string");
+                        msgId = data.messageIds[0];
+                        if (pushedMsgs) {
+                            validateMessage();
+                        }
+                    }, done);                       
+                } else if (msg.event == "push") {
+                    expect(msg.info).be.an(Array);
+                    var msgs = msg.info.filter(function (msg) { return msg.regId == regId; });
+                    expect(msgs).not.be.empty();
+                    expect(msgs[0].messages).not.be.empty();
+                    pushedMsgs = msgs[0].messages;
+                    if (msgId) {
                         validateMessage();
                     }
-                }, done);                
+                }
+            }, done).on("connect", function (conn) {
+                setTimeout(function () {
+                    conn.sendUTF(JSON.stringify({ event: "state", seq: 100 }));
+                }, 50);
             });
         }, done);
     });

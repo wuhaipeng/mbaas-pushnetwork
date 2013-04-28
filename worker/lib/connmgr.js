@@ -170,6 +170,10 @@ var Connection = new Class({
         });
     },
     
+    actionState: function (params) {
+        this.send("state", { seq: params.seq, regIds: Object.keys(this.regIds) });
+    },
+    
     actionPushAck: function (params) {
         this.ensureArray(params, "info", function (acks) {
             var errorAcks = [];
