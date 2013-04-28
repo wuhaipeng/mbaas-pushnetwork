@@ -17,7 +17,9 @@ var expect = require("expect.js"),
     ienv   = require("./integration-env"),
     asyncExpect = require("../lib/TestHelper").asyncExpect;
 
-ienv.describe("MassPush", function () {
+require("../lib/TestHelper")
+    .when(ienv.integrationEnabled && process.env.STRESS)
+    .describe("MassPush", function () {
 
     function massPush(appCount, msgCount, done) {
         var regIds = {}, count = 0;
