@@ -12,6 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+getService = function(sName) {
+  var services = JSON.parse(process.env.VCAP_SERVICES)
+  var service = null
+  for(var key in services) {
+    if(key.split('-')[0].toLowerCase() === sName) {
+      return services[key][0].credentials
+    }
+  }
+}
+
 var debug = require("debug"),
     RedisHelper   = require("./RedisHelper"),
     MessageStore  = require("./MessageStore"),
@@ -49,13 +59,19 @@ var Settings = {
         } else if (process.env.VCAP_APP_PORT) {
             this.LISTENING_PORT = process.env.VCAP_APP_PORT;
         }
-        
-        if (process.env.REDIS_CONN) {
+
+        var redis = getService("redis")
+        if (process.env.REDIS_CONN) { 
             this.REDIS_CONN = process.env.REDIS_CONN;
+        } else if (redis) {
+            this.REDIS_CONN = "redis://:" + redis.password + "@" + redis.host + ":" + redis.port
         }
-        
+
+        var mongodb = getService("mongodb");
         if (process.env.DB_CONN) {
             this.DB_CONN = process.env.DB_CONN;
+        } else if (mongodb) {
+            this.DB_CONN = mongodb.url
         }
         
         var trace = this.tracer("pn:comm:sets");
