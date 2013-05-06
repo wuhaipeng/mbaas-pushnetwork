@@ -5,7 +5,7 @@
     "private": true,
     "scripts": {
         "start": "node worker",
-        "preinstall": "npm link ../common --prefix=node_modules"
+        "preinstall": "npm install ../common"
     },
     "dependencies": {
         "pn-common": "*",
