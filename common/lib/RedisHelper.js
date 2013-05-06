@@ -19,7 +19,7 @@ exports.connect = function (connUrl, options) {
     var parsedUrl = url.parse(connUrl);
     var port = null, password = null, db = null;
     if (parsedUrl.port) {
-        port = parseInt(parseUrl.port);
+        port = parseInt(parsedUrl.port);
     }
     if (parsedUrl.auth) {
         password = parsedUrl.auth;
